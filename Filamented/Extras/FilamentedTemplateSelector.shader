@@ -445,7 +445,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             float4 frag_meta2 (v2f_meta i): SV_Target
             {
                 MaterialInputs material = SETUP_BRDF_INPUT (i.uv);
-                float4 dummy[3]; dummy[0] = 1; dummy[1] = 0; dummy[2] = 0;
+                float4 dummy[3]; dummy[0] = 1; dummy[1] = 0; dummy[2] = i.worldPos;
                 material = MyMaterialSetup (i.uv, 0, 0, dummy, i.worldPos);
                 
                 PixelParams pixel = (PixelParams)0;
