@@ -286,7 +286,7 @@ void addLayer(float weight, float2 uv, float4 uv_ST,
         props = props + thisProps * weight;
         #else
         albedoAlpha = lerp(albedoAlpha, thisBasemap, weight);
-        normal = RNMBlendUnpacked(thisNormal, normal);
+        normal = lerp(normal, RNMBlendUnpacked(thisNormal, normal), weight);
         props = lerp(props, thisProps, weight);
         #endif
     }
@@ -299,7 +299,7 @@ void addLayerTriplanar(float weight, float3 p, float3 n, float4 uv_ST,
     inout float4 maskProps)
 {
     const float tightness = 6.0;
-    if (weight > 0)
+    if (weight > 0.01)
     {
         p = p * uv_ST.xyx + uv_ST.zwz;
 
@@ -324,7 +324,7 @@ void addLayerTriplanar(float weight, float3 p, float3 n, float4 uv_ST,
         props = props + thisProps * weight;
         #else
         albedoAlpha = lerp(albedoAlpha, thisBasemap, weight);
-        normal = RNMBlendUnpacked(thisNormal, normal);
+        normal = lerp(normal, RNMBlendUnpacked(thisNormal, normal), weight);
         props = lerp(props, thisProps, weight);
         #endif
     }
