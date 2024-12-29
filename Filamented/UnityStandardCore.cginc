@@ -351,6 +351,11 @@ VertexOutputForwardBase vertForwardBase (VertexInput v)
     UNITY_TRANSFER_INSTANCE_ID(v, o);
     UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
+    v.normal = normalize(v.normal.xyz);
+    #ifdef _TANGENT_TO_WORLD
+    v.tangent.xyz = normalize(v.tangent.xyz);
+    #endif
+
     float4 posWorld = mul(unity_ObjectToWorld, v.vertex);
     #if UNITY_REQUIRE_FRAG_WORLDPOS
         #if UNITY_PACK_WORLDPOS_WITH_TANGENT
@@ -387,6 +392,7 @@ VertexOutputForwardBase vertForwardBase (VertexInput v)
     #ifdef _PARALLAXMAP
         TANGENT_SPACE_ROTATION;
         half3 viewDirForParallax = mul (rotation, ObjSpaceViewDir(v.vertex));
+        
         o.tangentToWorldAndPackedData[0].w = viewDirForParallax.x;
         o.tangentToWorldAndPackedData[1].w = viewDirForParallax.y;
         o.tangentToWorldAndPackedData[2].w = viewDirForParallax.z;

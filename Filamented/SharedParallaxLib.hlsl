@@ -43,11 +43,11 @@ float2 ParallaxRaymarching(float2 viewDir, PerPixelHeightDisplacementParam ppdPa
 float2 ParallaxRaymarchingDynamic(float3 viewDir, PerPixelHeightDisplacementParam ppdParam, 
     float strength, float lod)
 {
-    viewDir = normalize(viewDir);
     const float minLayers = 8.0;
     const float maxLayers = 48.0;
     // lod should be dot(normalWS, viewDirWS)
     float numLayers = lerp(maxLayers, minLayers, lod);
+    
     float heightScale = _Parallax; // 0.05
     float layerDepth = 1.0 / numLayers;
     float currLayerDepth = 0.0;
