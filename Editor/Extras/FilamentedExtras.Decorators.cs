@@ -53,11 +53,12 @@ namespace Silent.FilamentedExtras.Unity
 	        }
 
 	        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
-	        {/*
+	        {
+				/*
 	            position.y += 8;
 	            position = EditorGUI.IndentedRect(position);
 	            GUI.Label(position, header, EditorStyles.boldLabel);
-*/
+				*/
             Rect r = position;
 				r.x -= 2.0f;
 				r.y += 2.0f;

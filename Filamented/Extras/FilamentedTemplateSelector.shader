@@ -205,16 +205,12 @@ float3 RNMBlendUnpacked(float3 n1, float3 n2)
 }
 
 	// The material function itself!  You can alter the code below to add extra properties. 
-inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half3 i_viewDirForParallax, float4 tangentToWorld[3], float3 i_posWorld)
+inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half3 i_viewDirForParallax, 
+    float4 tangentToWorld[3], float3 i_posWorld)
 {   
     half4 baseColor = tex2D (_MainTex, i_tex.xy) * _Color;
     half4 packedMap = tex2D (_MOESMap, i_tex.xy);
     half3 normalTangent = UnpackScaleNormal(tex2D (_BumpMap, i_tex.xy), _BumpScale);
-
-    half metallic = packedMap[_MetallicSelect] * _MetallicScale;
-    half occlusion = lerp(1, packedMap[_OcclusionSelect], _OcclusionScale);
-    half emissionMask = packedMap[_EmissionSelect];
-    half smoothness = packedMap[_SmoothnessSelect] * _SmoothnessScale; 
 
     #if defined(_DTRIPLANAR)
     float triSharp = _TriplanarSharp;
@@ -231,8 +227,13 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     #endif
 
     baseColor.rgb = applyDetailBlendMode(_DetailBlendMode, baseColor, baseColorDetail, _DetailBlendWeight);
-
     normalTangent = lerp(normalTangent, RNMBlendUnpacked(normalTangent, normalTangentDetail), _DetailBlendWeight);
+    packedMap = lerp(packedMap, packedMap * packedMapDetail, saturate(_DetailBlendWeight));
+
+    half metallic = packedMap[_MetallicSelect] * _MetallicScale;
+    half occlusion = lerp(1, packedMap[_OcclusionSelect], _OcclusionScale);
+    half emissionMask = packedMap[_EmissionSelect];
+    half smoothness = packedMap[_SmoothnessSelect] * _SmoothnessScale; 
 
     MaterialInputs material = (MaterialInputs)0;
     initMaterial(material);
