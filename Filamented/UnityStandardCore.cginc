@@ -27,8 +27,8 @@
 
 #include "FilamentShadingLit.cginc"
 
-#include "AutoLight.cginc"
 #include "SharedFilteringLib.hlsl"
+// Note: AutoLight.cginc is included below.
 //-------------------------------------------------------------------------------------
 // counterpart for NormalizePerPixelNormal
 // skips normalization per-vertex and expects normalization to happen per-pixel
@@ -54,7 +54,7 @@ float3 NormalizePerPixelNormal (float3 n)
 
 fixed4 SampleShadowMaskBicubic(float2 uv)
 {
-    #ifdef SHADER_API_D3D11
+    #if defined(SHADER_API_D3D11)
         float width, height;
         unity_ShadowMask.GetDimensions(width, height);
 
@@ -115,6 +115,9 @@ void GetBakedAttenuation(inout float atten, float2 lightmapUV, float3 worldPos)
     #endif
 }
 
+
+#define UnitySampleBakedOcclusion UnitySampleBakedOcclusionBicubic
+#include "AutoLight.cginc"
 //-------------------------------------------------------------------------------------
 // Common fragment setup
 
