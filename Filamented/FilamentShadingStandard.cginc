@@ -119,7 +119,7 @@ float3 surfaceShading(const ShadingParams shading, const PixelParams pixel, cons
     // to match the light intensities of other shaders.
     // This is partly because the diffuse term is already divided by Pi here.
     float3 Fr = specularLobe(shading, pixel, light, h, NoV, NoL, NoH, LoH) * PI;
-    float3 Fd = diffuseLobe(pixel, NoV, NoL, NoH) * PI;
+    float3 Fd = diffuseLobe(pixel, NoV, NoL, LoH) * PI;
 
     // Unity toggle for disabling specular highlights.
 #if defined(_SPECULARHIGHLIGHTS_OFF)
