@@ -31,7 +31,7 @@ Shader "Silent/Filamented Extras/Filamented Selector Template"
         [Space]
         [HeaderEx(Emission Texture)]
         [NoScaleOffset][SetKeywordSingleLine(_ADD_EMISSION)]_EmissionMap("Emission Map", 2D) = "black" {}
-        _EmissionMapPower("Emission Power Intensity", Float) = 1.0
+        _EmissionMapPower("Emission Map Intensity", Float) = 1.0
         [HeaderEx(Details)]
         _DetailBlendWeight("Blend Weight", Range(0, 1)) = 1
         [HideInInspector][Enum(Multiply2x, 0, Multiply, 1, Additive, 2, AlphaBlend, 3)]_DetailBlendMode("Blend Mode", Float) = 0.0
