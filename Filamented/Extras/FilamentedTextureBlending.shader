@@ -365,7 +365,7 @@ inline MaterialInputs BlendedMaterialSetup (inout float4 i_tex, float4 tangentTo
     MaterialInputs debugView = (MaterialInputs)0;
     initMaterial(debugView);
     debugView.baseColor = 0.0;
-    debugView.emissive = weights;
+    debugView.emissive = float4(weights, 1.0);
     debugView.emissive.a = 1.0;
     return debugView;
 #endif
