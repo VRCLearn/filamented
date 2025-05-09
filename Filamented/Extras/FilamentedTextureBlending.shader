@@ -565,8 +565,8 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             ZTest Equal
             Cull [_CullMode]
             AlphaToMask [_AtoCmode]
-            Blend One [_DstBlend]
-            ZWrite [_ZWrite]
+            //Blend One [_DstBlend]
+            //ZWrite [_ZWrite]
 
             CGPROGRAM
             #pragma target 5.0
@@ -629,6 +629,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             Name "META"
             Tags {"LightMode"="Meta"}
             Cull Off
+            AlphaToMask Off
             CGPROGRAM
             
             #define REQUIRE_META_WORLDPOS
