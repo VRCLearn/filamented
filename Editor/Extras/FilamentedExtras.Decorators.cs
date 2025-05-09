@@ -292,6 +292,104 @@ namespace Silent.FilamentedExtras.Unity
 		}
 	}
 
+	sealed class SetKeywordSingleLineDrawer : MaterialPropertyDrawer
+	{
+		static bool s_drawing;
+		readonly string _keyword;
+		readonly string _extraPropName;
+		readonly string _additionalPropName;
+
+		public SetKeywordSingleLineDrawer(string keyword) : this(keyword, null, null) { }
+
+		public SetKeywordSingleLineDrawer(string keyword, string extraPropName) : this(keyword, extraPropName, null) { }
+
+		public SetKeywordSingleLineDrawer(string keyword, string extraPropName, string additionalPropName)
+		{
+			_keyword = keyword;
+			_extraPropName = extraPropName;
+			_additionalPropName = additionalPropName;
+		}
+
+		public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+			=> 0;
+
+		public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
+		{
+			if (s_drawing)
+			{
+				editor.DefaultShaderProperty(position, prop, label.text);
+				return;
+			}
+
+			if (prop.type != MaterialProperty.PropType.Texture)
+				return;
+
+			var oldLabelWidth = EditorGUIUtility.labelWidth;
+			EditorGUIUtility.labelWidth = 0f;
+			s_drawing = true;
+			
+			try
+			{
+				EditorGUI.BeginChangeCheck();
+
+				if (string.IsNullOrEmpty(_extraPropName))
+				{
+					editor.TexturePropertySingleLine(label, prop);
+				}
+				else
+				{
+					var extraProp = MaterialEditor.GetMaterialProperty(prop.targets, _extraPropName);
+
+					if (extraProp != null && extraProp.type == MaterialProperty.PropType.Color && 
+						(extraProp.flags & MaterialProperty.PropFlags.HDR) > 0)
+					{
+						editor.TexturePropertyWithHDRColor(label, prop, extraProp, false);
+					}
+					else if (string.IsNullOrEmpty(_additionalPropName))
+					{
+						editor.TexturePropertySingleLine(label, prop, extraProp);
+					}
+					else
+					{
+						var additionalProp = MaterialEditor.GetMaterialProperty(prop.targets, _additionalPropName);
+						editor.TexturePropertySingleLine(label, prop, extraProp, additionalProp);
+					}
+				}
+
+				if (EditorGUI.EndChangeCheck() && !string.IsNullOrEmpty(_keyword))
+				{
+					var useTexture = prop.textureValue != null;
+					foreach (Material mat in prop.targets)
+					{
+						if (useTexture)
+							mat.EnableKeyword(_keyword);
+						else
+							mat.DisableKeyword(_keyword);
+					}
+				}
+			}
+			finally
+			{
+				s_drawing = false;
+				EditorGUIUtility.labelWidth = oldLabelWidth;
+			}
+		}
+
+		public override void Apply(MaterialProperty prop)
+		{
+			if (!string.IsNullOrEmpty(_keyword))
+			{
+				foreach (Material mat in prop.targets)
+				{
+					if (mat.GetTexture(prop.name) != null)
+						mat.EnableKeyword(_keyword);
+					else
+						mat.DisableKeyword(_keyword);
+				}
+			}
+		}
+	}
+
 sealed class TexturePropertyTwoLines : MaterialPropertyDrawer
 {
     static bool s_drawing;
