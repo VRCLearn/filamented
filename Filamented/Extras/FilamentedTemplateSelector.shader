@@ -29,6 +29,9 @@ Shader "Silent/Filamented Extras/Filamented Selector Template"
         _Emission("Emission Power", Float) = 0
         _EmissionColor("Emission Tint", Color) = (1,1,1,1)
         [Space]
+        [HeaderEx(Emission Texture)]
+        [NoScaleOffset][SetKeywordSingleLine(_ADD_EMISSION)]_EmissionMap("Emission Map", 2D) = "black" {}
+        _EmissionMapPower("Emission Power Intensity", Float) = 1.0
         [HeaderEx(Details)]
         _DetailBlendWeight("Blend Weight", Range(0, 1)) = 1
         [HideInInspector][Enum(Multiply2x, 0, Multiply, 1, Additive, 2, AlphaBlend, 3)]_DetailBlendMode("Blend Mode", Float) = 0.0
@@ -72,6 +75,7 @@ Shader "Silent/Filamented Extras/Filamented Selector Template"
 
     CGINCLUDE
         #pragma multi_compile_local _ _DTRIPLANAR
+        #pragma multi_compile_local _ _ADD_EMISSION
     	// First, setup what Filamented does. 
     	// Filamented's behaviour is decided by the shading model and what material properties are defined.
     	// These are listed in FilamentMaterialInputs.
@@ -156,6 +160,11 @@ Shader "Silent/Filamented Extras/Filamented Selector Template"
     uniform half _TriplanarSharp;
     #endif
 
+    #ifdef _ADD_EMISSION
+    //uniform sampler2D _EmissionMap;
+    uniform half _EmissionMapPower;
+    #endif
+
 	// Vertex functions are called from UnityStandardCore.
 	// You can alter values here, or copy the function in and modify it.
 	VertexOutputForwardBase vertBase (VertexInput v) { return vertForwardBase(v); }
@@ -234,6 +243,13 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     half occlusion = lerp(1, packedMap[_OcclusionSelect], _OcclusionScale);
     half emissionMask = packedMap[_EmissionSelect];
     half smoothness = packedMap[_SmoothnessSelect] * _SmoothnessScale; 
+    
+    half3 emission = baseColor.rgb * emissionMask * _Emission * _EmissionColor;
+
+    #if defined(_ADD_EMISSION)
+    half4 emissionMap = tex2D (_EmissionMap, i_tex.xy);
+    emission += emissionMap * _EmissionMapPower;
+    #endif
 
     MaterialInputs material = (MaterialInputs)0;
     initMaterial(material);
@@ -241,7 +257,7 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     material.metallic = metallic;
     material.roughness = (_SmoothnessMode == 1) ? smoothness : computeRoughnessFromGlossiness(smoothness);
     material.normal = normalTangent;
-    material.emissive.rgb = baseColor.rgb * emissionMask * _Emission * _EmissionColor;
+    material.emissive.rgb = emission;
     material.emissive.a = 1.0;
     material.ambientOcclusion = occlusion;
     return material;
@@ -373,8 +389,8 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             ZTest Equal
             Cull [_CullMode]
             AlphaToMask [_AtoCmode]
-            Blend One [_DstBlend]
-            ZWrite [_ZWrite]
+            //Blend One [_DstBlend]
+            //ZWrite [_ZWrite]
 
             CGPROGRAM
             #pragma target 3.0
