@@ -11,6 +11,7 @@ Shader "Silent/Filamented Extras/Texture Blending Filamented"
         [BlendModeSelector(_SrcBlend, _DstBlend, _CustomRenderQueue, _ZWrite, _AtoCmode)] _Mode ("__mode", Float) = 0.0
 
         [HeaderEx(Base Settings)]
+        [Enum(UV0,0,UV1,1,UV2,2,UV3,3)] _UVSec ("UV for Splat Map", Float) = 0
         [SetKeyword(_SPLATMAP)]_MainTex("Splat Map (Optional) and Texture Scale", 2D) = "black" {}
 
         [HeaderEx(Base Color)]
@@ -114,6 +115,10 @@ Shader "Silent/Filamented Extras/Texture Blending Filamented"
 
         #define HAS_ATTRIBUTE_COLOR
         // If this is not defined, vertex colour will not be available.
+        
+        #define HAS_ATTRIBUTE_UV2
+        #define HAS_ATTRIBUTE_UV3
+        // If this is not defined, secondary UVs will not be available.
 
         #define USE_DFG_LUT
         // Whether to use the lookup texture for specular reflection calculation.
@@ -158,10 +163,34 @@ Shader "Silent/Filamented Extras/Texture Blending Filamented"
     float4 _BlendMask_ST;
     float4 _MaskStr;
 
-	// Vertex functions are called from UnityStandardCore.
-	// You can alter values here, or copy the function in and modify it.
-	VertexOutputForwardBase vertBase (VertexInput v) { return vertForwardBase(v); }
-	VertexOutputForwardAdd vertAdd (VertexInput v) { return vertForwardAdd(v); }
+VertexOutputForwardBase vertBase (VertexInput v) 
+    { 
+        VertexOutputForwardBase o;
+        o = vertForwardBase(v); 
+        o.tex.zw = TRANSFORM_TEX(((_UVSec == 0) ? v.uv0 : v.uv1), _MainTex);
+    #if defined(HAS_ATTRIBUTE_UV2)
+        o.tex.zw = TRANSFORM_TEX(((_UVSec == 2) ? v.uv2 : o.tex.zw), _MainTex);
+    #endif
+    #if defined(HAS_ATTRIBUTE_UV3)
+        o.tex.zw = TRANSFORM_TEX(((_UVSec == 3) ? v.uv3 : o.tex.zw), _MainTex);
+    #endif
+        return o;
+    }
+    
+VertexOutputForwardAdd vertAdd (VertexInput v) 
+    { 
+        VertexOutputForwardAdd o;
+        o = vertForwardAdd(v); 
+        o.tex.zw = TRANSFORM_TEX(((_UVSec == 0) ? v.uv0 : v.uv1), _MainTex);
+    #if defined(HAS_ATTRIBUTE_UV2)
+        o.tex.zw = TRANSFORM_TEX(((_UVSec == 2) ? v.uv2 : o.tex.zw), _MainTex);
+    #endif
+    #if defined(HAS_ATTRIBUTE_UV3)
+        o.tex.zw = TRANSFORM_TEX(((_UVSec == 3) ? v.uv3 : o.tex.zw), _MainTex);
+    #endif
+        return o;
+    }
+
 
 //hash for randomness
 float2 hash2D2D(float2 s)
@@ -255,6 +284,14 @@ float3 RNMBlendUnpacked(float3 n1, float3 n2)
     return n1*dot(n1, n2)/n1.z - n2;
 }
 
+float3 PDNormalBlend(float3 n1, float3 n2, float alpha)
+{
+    float2 pd1 = n1.xy / n1.z;
+    float2 pd2 = n2.xy / n2.z;
+    float2 pd_interpolated = lerp(pd1, pd2, alpha);
+    return normalize(float3(pd_interpolated, 1.0));
+}
+
 void addLayer(float weight, float2 uv, float4 uv_ST,
     TEXTURE2D_PARAM(tex_A, smp_A), inout float4 albedoAlpha, float4 tint, 
     TEXTURE2D_PARAM(tex_N, smp_N), inout float3 normal, float scale, 
@@ -338,7 +375,7 @@ inline MaterialInputs BlendedMaterialSetup (inout float4 i_tex, float4 tangentTo
     fixed3 weights = i_color;
     #if defined(_SPLATMAP)
     // Blend weights in splat map
-    weights = tex2D (_MainTex, i_tex.xy);
+    weights = tex2D (_MainTex, i_tex.zw);
     #endif
 
     float3x3 tangentToWorldOnly = float3x3(tangentToWorld[0].xyz, tangentToWorld[1].xyz, tangentToWorld[2].xyz);
