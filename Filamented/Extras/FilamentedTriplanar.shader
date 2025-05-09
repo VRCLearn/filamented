@@ -325,8 +325,8 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             ZTest Equal
             Cull [_CullMode]
             AlphaToMask [_AtoCmode]
-            Blend One [_DstBlend]
-            ZWrite [_ZWrite]
+            // Blend One [_DstBlend]
+            // ZWrite [_ZWrite]
 
             CGPROGRAM
             #pragma target 3.0
