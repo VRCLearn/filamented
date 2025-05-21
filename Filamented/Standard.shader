@@ -58,6 +58,7 @@ Shader "Silent/Filamented"
             _RNM2("RNM2", 2D) = "black" {}
 
         [Toggle(_LTCGI)] _LTCGI ("LTCGI", Int) = 0
+        [Toggle(_VRCLV)] _VRCLV ("VRC Light Volumes", Int) = 0
 
         [Enum(UnityEngine.Rendering.CullMode)]_CullMode("Cull Mode", Int) = 2
         [ToggleUI]_AlphaToMaskMode("Alpha to Coverage", Int) = 0
@@ -119,6 +120,7 @@ Shader "Silent/Filamented"
             #pragma shader_feature_local _ _BAKERY_RNM _BAKERY_SH _BAKERY_MONOSH
             #pragma shader_feature_local _BAKERY_VERTEXLM
             #pragma shader_feature_local _LTCGI
+            #pragma shader_feature_local _VRCLV
 
             #pragma multi_compile_fwdbase
             #pragma multi_compile_fog

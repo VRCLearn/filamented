@@ -240,6 +240,10 @@ namespace SilentTools
         [GUIContent("LTCGI Support", "Sets whether the material can receive lights from LTCGI sources in the scene.")]
         private MaterialProperty ltcgiMode = null;
 
+        [MaterialProperty("_VRCLV")]
+        [GUIContent("VRC Light Volumes Support", "Sets whether the material can receive indirect light from Light Volumes in the scene.")]
+        private MaterialProperty vrclvMode = null;
+
         [MaterialProperty("_ShaderType_Cloth")]
         [GUIContent("Sheen", "Sheen colour (RGB) and glossiness (A) for cloth")]
         private MaterialProperty isCloth = null;
@@ -415,6 +419,7 @@ namespace SilentTools
                     DoBakeryArea(material);
                     EditorGUILayout.Space();
                     DoLTCGIArea(material);
+                    DoVRCLVArea(material);
 
                     EditorGUILayout.Space();
                 }
@@ -695,6 +700,18 @@ namespace SilentTools
             // Force disabled when script isn't active to protect against compile failures.
             material.SetFloat("_LTCGI", 0.0f);
             material.DisableKeyword("_LTCGI");
+        #endif
+        }
+
+        void DoVRCLVArea(Material material)
+        {
+        #if true
+            if (vrclvMode != null)
+                m_MaterialEditor.ShaderProperty(vrclvMode, guiContentCache[nameof(vrclvMode)]);
+        #else
+            // Force disabled when script isn't active to protect against compile failures.
+            material.SetFloat("_VRCLV", 0.0f);
+            material.DisableKeyword("_VRCLV");
         #endif
         }
 

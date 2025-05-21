@@ -48,6 +48,7 @@ Shader "Silent/Filamented Extras/Filamented Details Template"
         [HideInInspector]_RNM1("RNM1", 2D) = "black" {}
         [HideInInspector]_RNM2("RNM2", 2D) = "black" {}
         [Toggle(_LTCGI)] _LTCGI ("LTCGI", Int) = 0
+        [Toggle(_VRCLV)] _VRCLV ("VRC Light Volumes", Int) = 0
         [Space]
         [Enum(UnityEngine.Rendering.CullMode)]_CullMode("Cull Mode", Int) = 2
 
@@ -332,6 +333,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             
             #pragma shader_feature_local _ _BAKERY_RNM _BAKERY_SH _BAKERY_MONOSH
             #pragma shader_feature_local _LTCGI
+            #pragma shader_feature_local _VRCLV
             #pragma shader_feature_local _LIGHTMAPSPECULAR
 
             #pragma multi_compile_fwdbase

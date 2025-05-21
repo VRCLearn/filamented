@@ -8,7 +8,9 @@
 #include "UnityStandardUtils.cginc"
 #include "UnityLightingCommon.cginc"
 #include "SharedFilteringLib.hlsl"
+
 #include "FilamentLightLTCGI.cginc"
+#include "FilamentLightVRCLV.cginc"
 
 //------------------------------------------------------------------------------
 // Image based lighting configuration
@@ -323,9 +325,125 @@ half3 Irradiance_SampleProbeVolume (half4 normal, float3 worldPos)
 }
 #endif
 
-half3 Irradiance_SphericalHarmonicsUnity (half3 normal, half3 ambient, float3 worldPos)
+
+#if defined(_VRCLV)
+half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light derivedLight)
+{
+    derivedLight = (Light)0;
+    // Ensure the light volumes system is enabled
+    if (_UdonLightVolumeEnabled == 0.0)
+    {
+        return half3(0.0, 0.0, 0.0);
+    }
+
+    // Fetch Spherical Harmonics (SH) components from the VRC Light Volume
+    float3 L0, L1r, L1g, L1b;
+    LightVolumeSH(worldPos, L0, L1r, L1g, L1b);
+
+    // Compute irradiance using the SH components
+    half3 irradiance = 0.0;
+
+    #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_DEFAULT)
+        irradiance.r = dot(L1r, normal.xyz) + L0.r;
+        irradiance.g = dot(L1g, normal.xyz) + L0.g;
+        irradiance.b = dot(L1b, normal.xyz) + L0.b;
+    #endif
+
+    #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_GEOMETRICS)
+        irradiance.r = shEvaluateDiffuseL1Geomerics_local(L0.r, L1r, normal.xyz);
+        irradiance.g = shEvaluateDiffuseL1Geomerics_local(L0.g, L1g, normal.xyz);
+        irradiance.b = shEvaluateDiffuseL1Geomerics_local(L0.b, L1b, normal.xyz);
+    #endif
+
+    #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
+        irradiance.r = SHEvalLinearL0L1_ZH3Hallucinate(float4(L0.r, L1r), normal.xyz);
+        irradiance.g = SHEvalLinearL0L1_ZH3Hallucinate(float4(L0.g, L1g), normal.xyz);
+        irradiance.b = SHEvalLinearL0L1_ZH3Hallucinate(float4(L0.b, L1b), normal.xyz);
+    #endif
+    
+    #if defined(LIGHTMAP_SPECULAR)
+    float3 nL1x; float3 nL1y; float3 nL1z;
+    nL1x = float3(L1r[0], L1g[0], L1b[0]);
+    nL1y = float3(L1r[1], L1g[1], L1b[1]);
+    nL1z = float3(L1r[2], L1g[2], L1b[2]);
+    float3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
+
+    derivedLight.l = dominantDir;
+    half directionality = max(0.001, length(derivedLight.l));
+    derivedLight.l /= directionality;
+
+    // Split light into the directional and ambient parts, according to the directionality factor.
+    derivedLight.colorIntensity = float4(irradiance * directionality, 1.0);
+    derivedLight.attenuation = directionality;
+    derivedLight.NoL = saturate(dot(normal, derivedLight.l));
+    #endif
+
+    return irradiance;
+}
+
+half3 Irradiance_SampleVRCLightVolumeAdditive(half3 normal, float3 worldPos, inout Light derivedLight)
+{
+    // Duplicate check inside function here to avoid changing derivedLight. 
+    if (!_UdonLightVolumeEnabled || _UdonLightVolumeAdditiveCount == 0) return 0;
+    // Fetch Spherical Harmonics (SH) components from the VRC Light Volume
+    float3 L0, L1r, L1g, L1b;
+    LightVolumeAdditiveSH(worldPos, L0, L1r, L1g, L1b);
+
+    // Compute irradiance using the SH components
+    half3 irradiance = 0.0;
+
+    // Doesn't support non-linear evaluation, so just evaluate normally. 
+        irradiance.r = dot(L1r, normal.xyz) + L0.r;
+        irradiance.g = dot(L1g, normal.xyz) + L0.g;
+        irradiance.b = dot(L1b, normal.xyz) + L0.b;
+    
+    // Add derived light to existing derived light
+    #if defined(LIGHTMAP_SPECULAR)
+    float3 nL1x; float3 nL1y; float3 nL1z;
+    nL1x = float3(L1r[0], L1g[0], L1b[0]);
+    nL1y = float3(L1r[1], L1g[1], L1b[1]);
+    nL1z = float3(L1r[2], L1g[2], L1b[2]);
+    float3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
+
+    derivedLight.l += dominantDir;
+    half directionality = max(0.001, length(derivedLight.l));
+    derivedLight.l /= directionality;
+
+    // Split light into the directional and ambient parts, according to the directionality factor.
+    derivedLight.colorIntensity += float4(irradiance * directionality, 1.0);
+    derivedLight.attenuation += directionality;
+    derivedLight.NoL += saturate(dot(normal, derivedLight.l));
+    #endif
+
+    return irradiance;
+}
+#endif
+
+half3 Irradiance_SphericalHarmonicsUnity (half3 normal, half3 ambient, float3 worldPos, out Light derivedLight)
 {
     half3 ambient_contrib = 0.0;
+    derivedLight = (Light)0;
+
+    // Gather VRC Light Volumes data, if present. 
+    // This replaces the result of light probes. 
+#if defined(_VRCLV)
+    #if UNITY_LIGHT_PROBE_PROXY_VOLUME // I feel like this is an insane edge case
+        if (unity_ProbeVolumeParams.x == 1.0)
+            ambient_contrib = Irradiance_SampleProbeVolume(half4(normal, 1.0), worldPos);
+        else
+            ambient_contrib = Irradiance_SampleVRCLightVolume(normal, worldPos, derivedLight);
+    #else
+        ambient_contrib = Irradiance_SampleVRCLightVolume(normal, worldPos, derivedLight);
+    #endif
+
+    ambient += max(half3(0, 0, 0), ambient_contrib);
+
+    #ifdef UNITY_COLORSPACE_GAMMA
+        ambient = LinearToGammaSpace (ambient);
+    #endif
+
+    return ambient;
+#endif
 
     #if UNITY_SAMPLE_FULL_SH_PER_PIXEL
         // Completely per-pixel
@@ -705,7 +823,7 @@ float3 UnityGI_Irradiance(ShadingParams shading, float3 tangentNormal, out float
     derivedLight = (Light)0;
 
     #if UNITY_SHOULD_SAMPLE_SH
-        irradiance = Irradiance_SphericalHarmonicsUnity(shading.normal, shading.ambient, shading.position);
+        irradiance = Irradiance_SphericalHarmonicsUnity(shading.normal, shading.ambient, shading.position, derivedLight);
         occlusion = saturate(length(irradiance) * getExposureOcclusionBias());
     #endif
 
@@ -836,6 +954,11 @@ float3 UnityGI_Irradiance(ShadingParams shading, float3 tangentNormal, out float
         #endif
     #endif
     
+    // VRC Light Volumes also have an additive component which can be added over lightmapping.
+    #if defined(_VRCLV) && !UNITY_SHOULD_SAMPLE_SH
+        irradiance += Irradiance_SampleVRCLightVolumeAdditive(shading.normal, shading.position, derivedLight);
+    #endif
+
     occlusion = IrradianceToExposureOcclusion(irradianceForAO);
 
     return irradiance;
