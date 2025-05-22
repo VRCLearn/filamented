@@ -333,7 +333,7 @@ struct VertexInput
 
         #include "SharedParallaxLib.hlsl"
 
-        float4 Parallax (float4 texcoords, half3 viewDir, half lod = 0)
+        float4 Parallax (float4 texcoords, half3 viewDir, half lod)
         {
         #if !defined(_PARALLAXMAP) || (SHADER_TARGET < 30) || (PARALLAX_OPERATOR == PARALLAX_NONE)
             // Disable parallax on pre-SM3.0 shader target models

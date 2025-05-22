@@ -248,7 +248,7 @@ inline MaterialInputs MaterialSetup (inout float4 i_tex, float3 i_eyeVec, half3 
 #else
     float3 viewDirWS = -normalize(i_posWorld - _WorldSpaceCameraPos);
     float3 normalWS = tangentToWorld[2];
-    float parallaxLod = abs(dot(normalWS, viewDirWS));
+    float parallaxLod = dot(normalWS, viewDirWS);
 
 #if !defined(PARALLAX_CUSTOM_INPUT)
     i_tex = Parallax(i_tex, i_viewDirForParallax, parallaxLod);
