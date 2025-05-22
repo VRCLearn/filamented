@@ -437,11 +437,9 @@ void computeShadingParamsForwardBase(inout ShadingParams shading, VertexOutputFo
     tangentToWorld[2] = i.tangentToWorldAndPackedData[2].xyz;
 
     if (getIsDoubleSided()) {
-#if defined(_TANGENT_TO_WORLD)
-        tangentToWorld[0] = gl_FrontFacing ? tangentToWorld[0] : -tangentToWorld[0];
-        tangentToWorld[1] = gl_FrontFacing ? tangentToWorld[1] : -tangentToWorld[1];
-#endif
-        tangentToWorld[2] = gl_FrontFacing ? tangentToWorld[2] : -tangentToWorld[2];
+        tangentToWorld[0] *= gl_FrontFacing ? 1 : -1;
+        tangentToWorld[1] *= gl_FrontFacing ? 1 : -1;
+        tangentToWorld[2] *= gl_FrontFacing ? 1 : -1;
     }
 
     shading.geometricNormal = normalize(tangentToWorld[2].xyz);
@@ -449,7 +447,7 @@ void computeShadingParamsForwardBase(inout ShadingParams shading, VertexOutputFo
 
     shading.normalizedViewportCoord = i.pos.xy * (0.5 / i.pos.w) + 0.5;
 
-    shading.normal = (shading.geometricNormal);
+    shading.normal = shading.geometricNormal;
     shading.position = IN_WORLDPOS(i);
     shading.view = -NormalizePerPixelNormal(i.eyeVec);
 
@@ -489,7 +487,7 @@ void computeShadingParamsForwardBase(inout ShadingParams shading, VertexOutputFo
 #endif
 }
 
-half4 fragForwardBaseInternal (VertexOutputForwardBase i, bool gl_FrontFacing = true)
+half4 fragForwardBaseInternal (VertexOutputForwardBase i, bool gl_FrontFacing)
 {
     UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
 
@@ -519,9 +517,9 @@ half4 fragForwardBaseInternal (VertexOutputForwardBase i, bool gl_FrontFacing = 
     return c;
 }
 
-half4 fragForwardBase (VertexOutputForwardBase i) : SV_Target   // backward compatibility (this used to be the fragment entry function)
+half4 fragForwardBase (VertexOutputForwardBase i, bool facing : SV_IsFrontFace) : SV_Target   // backward compatibility (this used to be the fragment entry function)
 {
-    return fragForwardBaseInternal(i);
+    return fragForwardBaseInternal(i, facing);
 }
 
 // ------------------------------------------------------------------
@@ -627,11 +625,9 @@ void computeShadingParamsForwardAdd(inout ShadingParams shading, VertexOutputFor
     tangentToWorld[2] = i.tangentToWorldAndLightDir[2].xyz;
 
     if (getIsDoubleSided()) {
-#if defined(_TANGENT_TO_WORLD)
-        tangentToWorld[0] = gl_FrontFacing ? tangentToWorld[0] : -tangentToWorld[0];
-        tangentToWorld[1] = gl_FrontFacing ? tangentToWorld[1] : -tangentToWorld[1];
-#endif
-        tangentToWorld[2] = gl_FrontFacing ? tangentToWorld[2] : -tangentToWorld[2];
+        tangentToWorld[0] *= gl_FrontFacing ? 1 : -1;
+        tangentToWorld[1] *= gl_FrontFacing ? 1 : -1;
+        tangentToWorld[2] *= gl_FrontFacing ? 1 : -1;
     }
 
     shading.geometricNormal = normalize(tangentToWorld[2].xyz);
@@ -653,7 +649,7 @@ void computeShadingParamsForwardAdd(inout ShadingParams shading, VertexOutputFor
 #endif
 }
 
-half4 fragForwardAddInternal (VertexOutputForwardAdd i, bool gl_FrontFacing = true)
+half4 fragForwardAddInternal (VertexOutputForwardAdd i, bool gl_FrontFacing)
 {
     UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
 
@@ -680,9 +676,9 @@ half4 fragForwardAddInternal (VertexOutputForwardAdd i, bool gl_FrontFacing = tr
     return c;
 }
 
-half4 fragForwardAdd (VertexOutputForwardAdd i) : SV_Target     // backward compatibility (this used to be the fragment entry function)
+half4 fragForwardAdd (VertexOutputForwardAdd i, bool facing : SV_IsFrontFace) : SV_Target     // backward compatibility (this used to be the fragment entry function)
 {
-    return fragForwardAddInternal(i);
+    return fragForwardAddInternal(i, facing);
 }
 
 #endif // UNITY_STANDARD_CORE_INCLUDED
