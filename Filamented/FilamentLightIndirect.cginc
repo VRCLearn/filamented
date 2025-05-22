@@ -31,6 +31,11 @@
 // as L2 SH is balanced for adding to basic SH sampling, which can cause ringing artifacts.
 #define SPHERICAL_HARMONICS_USE_L2          0
 
+// Whether to use non-linear sampling on Bakery lightmap modes. 
+// If ZH3 sampling is used, it will be used here. This increases the quality of the directional
+// lighting on lightmapped surfaces, in exchange for a performance cost. 
+#define BAKERY_SHNONLINEAR 0
+
 // IBL integration algorithm
 #define IBL_INTEGRATION_PREFILTERED_CUBEMAP         0
 #define IBL_INTEGRATION_IMPORTANCE_SAMPLING         1 // Not supported!
@@ -171,6 +176,24 @@ float3 SHEvalLinearL0L1_ZH3Hallucinate(float3 normal)
     float3 shL1_1 = float3(unity_SHAr.y, unity_SHAg.y, unity_SHAb.y);
     float3 shL1_2 = float3(unity_SHAr.z, unity_SHAg.z, unity_SHAb.z);
     float3 shL1_3 = float3(unity_SHAr.x, unity_SHAg.x, unity_SHAb.x);
+
+    float3 result = 0.0;
+    float4 a = float4(shL0.r, shL1_1.r, shL1_2.r, shL1_3.r);
+    float4 b = float4(shL0.g, shL1_1.g, shL1_2.g, shL1_3.g);
+    float4 c = float4(shL0.b, shL1_1.b, shL1_2.b, shL1_3.b);
+    result.r = SHEvalLinearL0L1_ZH3Hallucinate(a, normal);
+    result.g = SHEvalLinearL0L1_ZH3Hallucinate(b, normal);
+    result.b = SHEvalLinearL0L1_ZH3Hallucinate(c, normal);
+    return result;
+}
+
+float3 SHEvalLinearL0L1_ZH3Hallucinate(float3 normal, float3 L0, 
+    float3 L1r, float3 L1g, float3 L1b)
+{
+    float3 shL0 = L0;
+    float3 shL1_1 = float3(L1r.y, L1g.y, L1b.y);
+    float3 shL1_2 = float3(L1r.z, L1g.z, L1b.z);
+    float3 shL1_3 = float3(L1r.x, L1g.x, L1b.x);
 
     float3 result = 0.0;
     float4 a = float4(shL0.r, shL1_1.r, shL1_2.r, shL1_3.r);
@@ -351,9 +374,7 @@ half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light d
     #endif
 
     #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
-        irradiance.r = SHEvalLinearL0L1_ZH3Hallucinate(float4(L0.r, L1r), normal.xyz);
-        irradiance.g = SHEvalLinearL0L1_ZH3Hallucinate(float4(L0.g, L1g), normal.xyz);
-        irradiance.b = SHEvalLinearL0L1_ZH3Hallucinate(float4(L0.b, L1b), normal.xyz);
+        irradiance = SHEvalLinearL0L1_ZH3Hallucinate(normal.xyz, L0, L1r, L1g, L1b);
     #endif
     
     #if defined(LIGHTMAP_SPECULAR)
@@ -678,7 +699,7 @@ float3 DecodeSHLightmap(half3 L0, half2 lightmapUV, half3 normalWorld, out Light
         float lumaSH = shEvaluateDiffuseL1Geomerics_local(lumaL0, float3(lumaL1x, lumaL1y, lumaL1z), normalWorld);
 
         #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
-            lumaSH = SHEvalLinearL0L1_ZH3Hallucinate(float4(lumaL0, lumaL1x, lumaL1y, lumaL1z), normalWorld);
+            lumaSH = SHEvalLinearL0L1_ZH3Hallucinate(float4(lumaL0, lumaL1y, lumaL1z, lumaL1x), normalWorld);
         #endif
 
         irradiance = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
@@ -728,7 +749,7 @@ float3 DecodeSHLightmapVertex(half3 L0, half3 ambientSH[3], half3 normalWorld, o
         float lumaSH = shEvaluateDiffuseL1Geomerics_local(lumaL0, float3(lumaL1x, lumaL1y, lumaL1z), normalWorld);
 
         #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
-            lumaSH = SHEvalLinearL0L1_ZH3Hallucinate(float4(lumaL0, lumaL1x, lumaL1y, lumaL1z), normalWorld);
+            lumaSH = SHEvalLinearL0L1_ZH3Hallucinate(float4(lumaL0, lumaL1y, lumaL1z, lumaL1x), normalWorld);
         #endif
 
         irradiance = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
@@ -768,24 +789,24 @@ float3 DecodeMonoSHLightmap(half3 L0, half3 dominantDir, half3 normalWorld, out 
 
     float3 sh;
 
-#if BAKERY_SHNONLINEAR
-    float lumaL0 = dot(L0, 1);
-    float lumaL1x = dot(L1x, 1);
-    float lumaL1y = dot(L1y, 1);
-    float lumaL1z = dot(L1z, 1);
-    float lumaSH = shEvaluateDiffuseL1Geomerics_local(lumaL0, float3(lumaL1x, lumaL1y, lumaL1z), normalWorld);
+    #if BAKERY_SHNONLINEAR
+        float lumaL0 = dot(L0, 1);
+        float lumaL1x = dot(L1x, 1);
+        float lumaL1y = dot(L1y, 1);
+        float lumaL1z = dot(L1z, 1);
+        float lumaSH = shEvaluateDiffuseL1Geomerics_local(lumaL0, float3(lumaL1x, lumaL1y, lumaL1z), normalWorld);
 
-    #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
-        lumaSH = SHEvalLinearL0L1_ZH3Hallucinate(float4(lumaL0, lumaL1x, lumaL1y, lumaL1z), normalWorld);
+        #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
+            lumaSH = SHEvalLinearL0L1_ZH3Hallucinate(float4(lumaL0, lumaL1y, lumaL1z, lumaL1x), normalWorld);
+        #endif
+
+        sh = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
+        float regularLumaSH = dot(sh, 1);
+
+        sh *= lerp(1, lumaSH / regularLumaSH, saturate(regularLumaSH*16));
+    #else
+        sh = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
     #endif
-
-    sh = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
-    float regularLumaSH = dot(sh, 1);
-
-    sh *= lerp(1, lumaSH / regularLumaSH, saturate(regularLumaSH*16));
-#else
-    sh = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
-#endif
 
     #if defined(LIGHTMAP_SPECULAR)
     dominantDir = nL1;
@@ -813,13 +834,14 @@ float IrradianceToExposureOcclusion(float3 irradiance)
 float3 UnityGI_Irradiance(ShadingParams shading, float3 tangentNormal, out float occlusion, out Light derivedLight)
 {
     float3 irradiance = shading.ambient;
-    float3 irradianceForAO;
+    // In order for the exposure occlusion to handle mixed lightmaps and etc well, we accumulate
+    // irradiance seperately, and calculate the exposure occlusion from that to avoid having directionality influence it. 
+    float3 irradianceForAO; 
     occlusion = 1.0;
     derivedLight = (Light)0;
 
     #if UNITY_SHOULD_SAMPLE_SH
-        irradiance = Irradiance_SphericalHarmonicsUnity(shading.normal, shading.ambient, shading.position, derivedLight);
-        occlusion = saturate(length(irradiance) * getExposureOcclusionBias());
+        irradiance += Irradiance_SphericalHarmonicsUnity(shading.normal, shading.ambient, shading.position, derivedLight);
     #endif
 
     irradianceForAO = irradiance;
@@ -1490,8 +1512,9 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     if (derivedLight.NoL >= 0.0) 
     {
         float diffuseAOForLightmap = min(material.ambientOcclusion * 0.8 + 0.3, 1.0);
-        color += surfaceShading(shading, pixelForBakedSpecular, derivedLight, 
-        computeMicroShadowing(derivedLight.NoL, diffuseAOForLightmap));
+        diffuseAOForLightmap = computeMicroShadowing(derivedLight.NoL, diffuseAOForLightmap);
+        color += surfaceShading(shading, pixelForBakedSpecular, derivedLight, diffuseAOForLightmap);
+        color = max(color, 0);
     };
     #endif
 }
