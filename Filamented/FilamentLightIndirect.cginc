@@ -374,7 +374,11 @@ half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light d
     #endif
 
     #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
-        irradiance = SHEvalLinearL0L1_ZH3Hallucinate(normal.xyz, L0, L1r, L1g, L1b);
+        //irradiance = SHEvalLinearL0L1_ZH3Hallucinate(normal.xyz, L0, L1r, L1g, L1b);
+        // Fall back to Geometrics for now.
+        irradiance.r = shEvaluateDiffuseL1Geomerics_local(L0.r, L1r, normal.xyz);
+        irradiance.g = shEvaluateDiffuseL1Geomerics_local(L0.g, L1g, normal.xyz);
+        irradiance.b = shEvaluateDiffuseL1Geomerics_local(L0.b, L1b, normal.xyz);
     #endif
     
     #if defined(LIGHTMAP_SPECULAR)
@@ -459,7 +463,7 @@ half3 Irradiance_SphericalHarmonicsUnity (half3 normal, half3 ambient, float3 wo
     #endif
 
     return ambient;
-#endif
+#else
 
     #if UNITY_SAMPLE_FULL_SH_PER_PIXEL
         // Completely per-pixel
@@ -499,6 +503,7 @@ half3 Irradiance_SphericalHarmonicsUnity (half3 normal, half3 ambient, float3 wo
     #endif
 
     return ambient;
+#endif
 }
 
 /*
@@ -985,7 +990,7 @@ float3 UnityGI_Irradiance(ShadingParams shading, float3 tangentNormal, out float
 // IBL irradiance dispatch
 //------------------------------------------------------------------------------
 
-float3 get_diffuseIrradiance(const float3 n) {
+float3 get_diffuseIrradiance_notUsed(const float3 n) {
         return Irradiance_SphericalHarmonics(n);
 }
 //------------------------------------------------------------------------------
