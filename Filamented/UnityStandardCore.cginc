@@ -250,7 +250,9 @@ inline MaterialInputs MaterialSetup (inout float4 i_tex, float3 i_eyeVec, half3 
     float3 normalWS = tangentToWorld[2];
     float parallaxLod = abs(dot(normalWS, viewDirWS));
 
+#if !defined(PARALLAX_CUSTOM_INPUT)
     i_tex = Parallax(i_tex, i_viewDirForParallax, parallaxLod);
+#endif
 
     MaterialInputs material = SETUP_BRDF_INPUT (i_tex);
 
