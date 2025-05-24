@@ -389,7 +389,7 @@ half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light d
     float3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
 
     derivedLight.l = dominantDir;
-    half directionality = max(0.001, length(derivedLight.l));
+    half directionality = max(FLT_EPS, length(derivedLight.l));
     derivedLight.l /= directionality;
 
     // Split light into the directional and ambient parts, according to the directionality factor.
@@ -401,8 +401,10 @@ half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light d
     return irradiance;
 }
 
-half3 Irradiance_SampleVRCLightVolumeAdditive(half3 normal, float3 worldPos, inout Light derivedLight)
+half3 Irradiance_SampleVRCLightVolumeAdditive(half3 normal, float3 worldPos, out Light derivedLight)
 {
+    derivedLight = (Light)0;
+
     // Duplicate check inside function here to avoid changing derivedLight. 
     if (!_UdonLightVolumeEnabled || _UdonLightVolumeAdditiveCount == 0) return 0;
     // Fetch Spherical Harmonics (SH) components from the VRC Light Volume
@@ -425,14 +427,14 @@ half3 Irradiance_SampleVRCLightVolumeAdditive(half3 normal, float3 worldPos, ino
     nL1z = float3(L1r[2], L1g[2], L1b[2]);
     float3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
 
-    derivedLight.l += dominantDir;
-    half directionality = max(0.001, length(derivedLight.l));
+    derivedLight.l = dominantDir;
+    half directionality = max(FLT_EPS, length(derivedLight.l));
     derivedLight.l /= directionality;
 
     // Split light into the directional and ambient parts, according to the directionality factor.
-    derivedLight.colorIntensity += float4(irradiance * directionality, 1.0);
-    derivedLight.attenuation += directionality;
-    derivedLight.NoL += saturate(dot(normal, derivedLight.l));
+    derivedLight.colorIntensity = float4(irradiance * directionality, 1.0);
+    derivedLight.attenuation = directionality;
+    derivedLight.NoL = saturate(dot(normal, derivedLight.l));
     #endif
 
     return irradiance;
@@ -978,7 +980,20 @@ float3 UnityGI_Irradiance(ShadingParams shading, float3 tangentNormal, out float
     
     // VRC Light Volumes also have an additive component which can be added over lightmapping.
     #if defined(_VRCLV) && !UNITY_SHOULD_SAMPLE_SH
-        irradiance += Irradiance_SampleVRCLightVolumeAdditive(shading.normal, shading.position, derivedLight);
+        Light volumeLight = (Light)0;
+        irradiance += Irradiance_SampleVRCLightVolumeAdditive(shading.normal, shading.position, volumeLight);
+
+        // Merge lights, weighing each light's contribution by their intensity
+        float derivedLum = luminance(derivedLight.colorIntensity.rgb);
+        float volumeLum = luminance(volumeLight.colorIntensity.rgb);
+        float totalIntensity = derivedLum + volumeLum + FLT_EPS;
+        float derivedWeight = derivedLum / totalIntensity;
+        float volumeWeight = volumeLum / totalIntensity;
+
+        derivedLight.l = normalize(derivedLight.l * derivedWeight + volumeLight.l * volumeWeight);
+        derivedLight.colorIntensity = derivedLight.colorIntensity * derivedWeight + volumeLight.colorIntensity * volumeWeight;
+        derivedLight.attenuation = derivedLight.attenuation * derivedWeight + volumeLight.attenuation * volumeWeight;
+        derivedLight.NoL = derivedLight.NoL * derivedWeight + volumeLight.NoL * volumeWeight;
     #endif
 
     occlusion = IrradianceToExposureOcclusion(irradianceForAO);
