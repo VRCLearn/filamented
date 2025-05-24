@@ -1524,9 +1524,12 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     #if defined(LIGHTMAP_SPECULAR)
     PixelParams pixelForBakedSpecular = pixel;
 
-    // remap roughness to clamp at max roughness without a hard clamp
+    // Remap roughness to clamp at max roughness without a hard clamp
     pixelForBakedSpecular.roughness = remap_almostIdentity(pixelForBakedSpecular.roughness,
         1-getLightmapSpecularMaxSmoothness(), 1-getLightmapSpecularMaxSmoothness()+MIN_ROUGHNESS);
+
+    // Remove diffuse component
+    pixelForBakedSpecular.diffuseColor = 0;
     
     // derived light contribution from lightmap
     if (derivedLight.NoL >= 0.0) 
