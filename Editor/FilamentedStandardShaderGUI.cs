@@ -807,7 +807,7 @@ namespace SilentTools
                     break;
             }
 
-            if (overrideRenderQueue || material.renderQueue < minRenderQueue || material.renderQueue > maxRenderQueue)
+            if (overrideRenderQueue)
             {
                 if (!overrideRenderQueue)
                     Debug.LogFormat("Render queue value outside of the allowed range ({0} - {1}) for selected Blend mode, resetting render queue to default", minRenderQueue, maxRenderQueue);
