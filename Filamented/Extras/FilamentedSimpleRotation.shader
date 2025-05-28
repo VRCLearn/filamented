@@ -7,6 +7,7 @@ Shader "Silent/Filamented Extras/Simple Rotate Filamented"
         [HeaderEx(Base Material)]
         [ScaleOffset][SingleLine(_Color)]_MainTex("Albedo", 2D) = "white" {}
         [HideInInspector]_Color("Color", Color) = (1,1,1,1)
+        [IfDef(_ALPHATEST_ON)]_Cutoff("Alpha Cutoff", Range(0, 1)) = 0.5
         [SingleLine(_BumpScale)][Normal] _BumpMap("Normal", 2D) = "bump" {}
         [HideInInspector]_BumpScale("Normal Scale", Float) = 1
         [SingleLine]_MOESMap("MOES Map", 2D) = "white" {}
