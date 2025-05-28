@@ -1,7 +1,7 @@
 /*
 Filamented example template.
 */ 
-Shader "Silent/Filamented Extras/Filamented Selector Template"
+Shader "Silent/Filamented Extras/Filamented Selector"
 {
     Properties
     {
