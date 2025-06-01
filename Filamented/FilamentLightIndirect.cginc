@@ -612,7 +612,7 @@ inline float3 DecodeDirectionalLightmapSpecular(half3 color, half4 dirTex, half3
 
     o_light.NoL = saturate(dot(normalWorld, o_light.l));
 
-    return ambient;
+    return color;
 }
 
 #if defined(USING_BAKERY) && defined(LIGHTMAP_ON)
