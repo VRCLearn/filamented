@@ -58,6 +58,7 @@ Shader "Silent/Filamented (Roughness setup)"
 
         [Toggle(_LTCGI)] _LTCGI ("LTCGI", Int) = 0
         [Toggle(_VRCLV)] _VRCLV ("VRC Light Volumes", Int) = 0
+        [IfDef(_VRCLV)] _VRCLVSurfaceBias("Light Volume Surface Bias", Range(0, 0.5)) = 0.05
 
         [Enum(UnityEngine.Rendering.CullMode)]_CullMode("Cull Mode", Int) = 2
         [ToggleUI]_AlphaToMaskMode("Alpha to Coverage", Int) = 0

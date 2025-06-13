@@ -353,10 +353,14 @@ half3 Irradiance_SampleProbeVolume (half4 normal, float3 worldPos)
 half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light derivedLight)
 {
     derivedLight = (Light)0;
+
+    // Bias sampling by surface normal to avoid artifacts 
+    // Todo: Offset by viewDir
+    float3 samplePos = worldPos + normal * getLightVolumeSurfaceBias();
     
     // Fetch Spherical Harmonics (SH) components from the VRC Light Volume
     float3 L0, L1r, L1g, L1b;
-    LightVolumeSH(worldPos, L0, L1r, L1g, L1b);
+    LightVolumeSH(samplePos, L0, L1r, L1g, L1b);
 
     // Compute irradiance using the SH components
     half3 irradiance = 0.0;

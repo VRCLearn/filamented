@@ -244,6 +244,10 @@ namespace SilentTools
         [GUIContent("VRC Light Volumes Support", "Sets whether the material can receive indirect light from Light Volumes in the scene.")]
         private MaterialProperty vrclvMode = null;
 
+        [MaterialProperty("_VRCLVSurfaceBias")]
+        [GUIContent("Light Volume Surface Bias", "Controls the surface bias for light volumes, measured in cm. This helps prevent bad self-shadowing for baked objects. For non-baked, dynamic, moving objects, set this to zero.")]
+        private MaterialProperty vrclvSurfaceBias = null;
+
         [MaterialProperty("_ShaderType_Cloth")]
         [GUIContent("Sheen", "Sheen colour (RGB) and glossiness (A) for cloth")]
         private MaterialProperty isCloth = null;
@@ -708,6 +712,8 @@ namespace SilentTools
         #if true
             if (vrclvMode != null)
                 m_MaterialEditor.ShaderProperty(vrclvMode, guiContentCache[nameof(vrclvMode)]);
+            if (vrclvSurfaceBias != null)
+                m_MaterialEditor.ShaderProperty(vrclvSurfaceBias, guiContentCache[nameof(vrclvSurfaceBias)]);
         #else
             // Force disabled when script isn't active to protect against compile failures.
             material.SetFloat("_VRCLV", 0.0f);

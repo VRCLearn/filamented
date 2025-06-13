@@ -71,6 +71,10 @@ half        _Cutoff;
 half       _ExposureOcclusion;
 half       _LightmapSpecularMaxSmoothness;
 
+#if defined(_VRCLV)
+half       _VRCLVSurfaceBias;
+#endif
+
 half       _BumpShadowHeightScale;
 half       _BumpShadowHardness;
 
@@ -449,6 +453,15 @@ bool getIsBakeryVertexMode()
     return (bakeryLightmapMode == BAKERYMODE_VERTEXLM);
 #endif
     return false;
+}
+
+half getLightVolumeSurfaceBias()
+{
+    #if defined(_VRCLV)
+    return _VRCLVSurfaceBias;
+    #else
+    return 0;
+    #endif
 }
 
 #endif // UNITY_STANDARD_INPUT_INCLUDED

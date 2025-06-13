@@ -60,6 +60,7 @@ Shader "Silent/Filamented Extras/Filamented Selector"
         [HideInInspector]_RNM2("RNM2", 2D) = "black" {}
         [Toggle(_LTCGI)] _LTCGI ("LTCGI", Int) = 0
         [Toggle(_VRCLV)] _VRCLV ("VRC Light Volumes", Int) = 0
+        [IfDef(_VRCLV)] _VRCLVSurfaceBias("Light Volume Surface Bias", Range(0, 0.5)) = 0.05
         [Space]
         [Enum(UnityEngine.Rendering.CullMode)]_CullMode("Cull Mode", Int) = 2
 
@@ -77,6 +78,7 @@ Shader "Silent/Filamented Extras/Filamented Selector"
     CGINCLUDE
         #pragma multi_compile_local _ _DTRIPLANAR
         #pragma multi_compile_local _ _ADD_EMISSION
+        #pragma skip_variants _METALLICGLOSSMAP _NORMALMAP
     	// First, setup what Filamented does. 
     	// Filamented's behaviour is decided by the shading model and what material properties are defined.
     	// These are listed in FilamentMaterialInputs.

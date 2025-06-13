@@ -44,6 +44,7 @@ Shader "Silent/Filamented Extras/Pixel Art Filamented"
         [HideInInspector]_RNM2("RNM2", 2D) = "black" {}
         [Toggle(_LTCGI)] _LTCGI ("LTCGI", Int) = 0
         [Toggle(_VRCLV)] _VRCLV ("VRC Light Volumes", Int) = 0
+        [IfDef(_VRCLV)] _VRCLVSurfaceBias("Light Volume Surface Bias", Range(0, 0.5)) = 0.05
         [Space]
         
         [HideInInspector][Enum(UnityEngine.Rendering.BlendMode)]_SrcBlend ("__src", Float) = 1
