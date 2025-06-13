@@ -46,7 +46,7 @@ float2 ParallaxRaymarchingDynamic(float3 viewDir, PerPixelHeightDisplacementPara
     const float minLayers = 8.0;
     const float maxLayers = 48.0;
     // lod should be dot(normalWS, viewDirWS)
-    float numLayers = lerp(maxLayers, minLayers, lod);
+    float numLayers = lerp(maxLayers, minLayers, clamp(lod, 0, 1));
 
     if (viewDir.z < 0.001) return 0;
     
