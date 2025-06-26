@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEngine;
 using System.IO;
 
+#if UNITY_2022_3_OR_NEWER
 namespace SilentTools
 {
     public class FilamentedUpdateMaterialSettings : EditorWindow
@@ -68,7 +69,7 @@ namespace SilentTools
         private const string VRCLV_KEY = "_VRCLV";
 
         private const string LIGHTMAP_SPEC_PROP = "_LightmapSpecular";
-        private const string LIGHTMAP_SPEC_KEY = "LIGHTMAP_SPECULAR";
+        private const string LIGHTMAP_SPEC_KEY = "_LIGHTMAPSPECULAR";
 
         // --- UI State ---
         private int _totalUniqueMaterialsFound;
@@ -381,10 +382,10 @@ namespace SilentTools
 
             return targetMode switch
             {
-                BakeryRenderDirMode.None    => Mathf.Approximately(currentFloat, 0f) && !rnm && !sh && !mono,
-                BakeryRenderDirMode.RNM     => rnm && !sh && !mono && Mathf.Approximately(currentFloat, 2f),
-                BakeryRenderDirMode.SH      => sh && !rnm && !mono && Mathf.Approximately(currentFloat, 1f),
-                BakeryRenderDirMode.MonoSH  => mono && !rnm && !sh && Mathf.Approximately(currentFloat, 3f),
+                BakeryRenderDirMode.None => Mathf.Approximately(currentFloat, 0f) && !rnm && !sh && !mono,
+                BakeryRenderDirMode.RNM => rnm && !sh && !mono && Mathf.Approximately(currentFloat, 2f),
+                BakeryRenderDirMode.SH => sh && !rnm && !mono && Mathf.Approximately(currentFloat, 1f),
+                BakeryRenderDirMode.MonoSH => mono && !rnm && !sh && Mathf.Approximately(currentFloat, 3f),
                 _ => true,
             };
         }
@@ -493,3 +494,4 @@ namespace SilentTools
         }
     }
 }
+#endif // UNITY_2022_3_OR_NEWER
