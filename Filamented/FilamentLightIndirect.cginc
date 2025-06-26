@@ -1440,15 +1440,17 @@ void combineDiffuseAndSpecular(const ShadingParams shading, const PixelParams pi
 void evaluateIBL(const ShadingParams shading, const MaterialInputs material, const PixelParams pixel, 
     inout float3 color) {
     float ssao = 1.0; // Not implemented
-    float lightmapAO = 1.0; // 
+    float lightmapAO = 1.0; // Specular-only AO derived from baked lighting and exposure occlusion setting
     float3 tangentNormal = float3(0, 0, 1);
+#if defined(MATERIAL_HAS_NORMAL)
+    tangentNormal = material.normal;
+#endif
+
     Light derivedLight = (Light)0;
 
     // Gather Unity GI data
     UnityGIInput unityData = InitialiseUnityGIInput(shading, pixel);
-#if defined(MATERIAL_HAS_NORMAL)
-    tangentNormal = material.normal;
-#endif
+
     float3 unityIrradiance = UnityGI_Irradiance(shading, tangentNormal, 
         /*out*/ lightmapAO, /*out*/ derivedLight);
 
