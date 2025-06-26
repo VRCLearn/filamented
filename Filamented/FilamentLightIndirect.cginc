@@ -399,7 +399,7 @@ half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light d
     derivedLight.l = dominantDir / L1_mag;
     
     float3 directionalColor = float3(dot(L1r, derivedLight.l), dot(L1g, derivedLight.l), dot(L1b, derivedLight.l));
-    float3 Li = L0 + directionalColor;
+    float3 Li = L0 + max(0, directionalColor);
 
     derivedLight.colorIntensity = float4(Li, 1.0);
     derivedLight.attenuation = directionality;
@@ -413,8 +413,6 @@ half3 Irradiance_SampleVRCLightVolumeAdditive(half3 normal, float3 worldPos, out
 {
     derivedLight = (Light)0;
 
-    // Duplicate check inside function here to avoid changing derivedLight. 
-    if (!_UdonLightVolumeEnabled || _UdonLightVolumeAdditiveCount == 0) return 0;
     // Fetch Spherical Harmonics (SH) components from the VRC Light Volume
     float3 L0, L1r, L1g, L1b;
     LightVolumeAdditiveSH(worldPos, L0, L1r, L1g, L1b);
@@ -423,9 +421,9 @@ half3 Irradiance_SampleVRCLightVolumeAdditive(half3 normal, float3 worldPos, out
     half3 irradiance = 0.0;
 
     // Doesn't support non-linear evaluation, so just evaluate normally. 
-        irradiance.r = dot(L1r, normal.xyz) + L0.r;
-        irradiance.g = dot(L1g, normal.xyz) + L0.g;
-        irradiance.b = dot(L1b, normal.xyz) + L0.b;
+    irradiance.r = dot(L1r, normal.xyz) + L0.r;
+    irradiance.g = dot(L1g, normal.xyz) + L0.g;
+    irradiance.b = dot(L1b, normal.xyz) + L0.b;
     
     // Add derived light to existing derived light
     #if defined(LIGHTMAP_SPECULAR)
@@ -442,7 +440,7 @@ half3 Irradiance_SampleVRCLightVolumeAdditive(half3 normal, float3 worldPos, out
     derivedLight.l = dominantDir / L1_mag;
     
     float3 directionalColor = float3(dot(L1r, derivedLight.l), dot(L1g, derivedLight.l), dot(L1b, derivedLight.l));
-    float3 Li = L0 + directionalColor;
+    float3 Li = L0 + max(0, directionalColor);
 
     derivedLight.colorIntensity = float4(Li, 1.0);
     derivedLight.attenuation = directionality;
@@ -989,24 +987,6 @@ float3 UnityGI_Irradiance(ShadingParams shading, float3 tangentNormal, out float
             irradiance += realtimeColor;
         #endif
     #endif
-    
-    // VRC Light Volumes also have an additive component which can be added over lightmapping.
-    #if defined(_VRCLV) && !UNITY_SHOULD_SAMPLE_SH
-        Light volumeLight = (Light)0;
-        irradiance += Irradiance_SampleVRCLightVolumeAdditive(shading.normal, shading.position, volumeLight);
-
-        // Merge lights, weighing each light's contribution by their intensity
-        float derivedLum = luminance(derivedLight.colorIntensity.rgb);
-        float volumeLum = luminance(volumeLight.colorIntensity.rgb);
-        float totalIntensity = derivedLum + volumeLum + FLT_EPS;
-        float derivedWeight = derivedLum / totalIntensity;
-        float volumeWeight = volumeLum / totalIntensity;
-
-        derivedLight.l = normalize(derivedLight.l * derivedWeight + volumeLight.l * volumeWeight);
-        derivedLight.colorIntensity = derivedLight.colorIntensity * derivedWeight + volumeLight.colorIntensity * volumeWeight;
-        derivedLight.attenuation = derivedLight.attenuation * derivedWeight + volumeLight.attenuation * volumeWeight;
-        derivedLight.NoL = derivedLight.NoL * derivedWeight + volumeLight.NoL * volumeWeight;
-    #endif
 
     occlusion = IrradianceToExposureOcclusion(irradianceForAO);
 
@@ -1517,6 +1497,12 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     diffuseIrradiance += acc.diffuse;
 #endif
 
+    // VRC Light Volumes also have an additive component which can be added over lightmapping.
+    #if defined(_VRCLV) && !UNITY_SHOULD_SAMPLE_SH
+        Light volumeLight = (Light)0;
+        diffuseIrradiance += Irradiance_SampleVRCLightVolumeAdditive(shading.normal, shading.position, volumeLight);
+    #endif
+
     float3 Fd = pixel.diffuseColor * diffuseIrradiance * (1.0 - E) * diffuseBRDF;
 
     // subsurface layer
@@ -1534,25 +1520,33 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     
     // Note: iblLuminance is already premultiplied by the exposure
     combineDiffuseAndSpecular(shading, pixel, E, Fd, Fr, color);
-
+    
     #if defined(LIGHTMAP_SPECULAR)
+    PixelParams pixelForBakedSpecular = pixel;
+
+    // Remap roughness to clamp at max roughness without a hard clamp
+    pixelForBakedSpecular.roughness = remap_almostIdentity(pixelForBakedSpecular.roughness,
+        1-getLightmapSpecularMaxSmoothness(), 1-getLightmapSpecularMaxSmoothness()+MIN_ROUGHNESS);
+
+    // Remove diffuse component
+    pixelForBakedSpecular.diffuseColor = 0;
+
     if (derivedLight.NoL >= 0.0) 
     {
-        PixelParams pixelForBakedSpecular = pixel;
-
-        // Remap roughness to clamp at max roughness without a hard clamp
-        pixelForBakedSpecular.roughness = remap_almostIdentity(pixelForBakedSpecular.roughness,
-            1-getLightmapSpecularMaxSmoothness(), 1-getLightmapSpecularMaxSmoothness()+MIN_ROUGHNESS);
-
-        // Remove diffuse component
-        pixelForBakedSpecular.diffuseColor = 0;
-    
         // derived light contribution from lightmap
         float diffuseAOForLightmap = min(material.ambientOcclusion * 0.8 + 0.3, 1.0);
         diffuseAOForLightmap = computeMicroShadowing(derivedLight.NoL, diffuseAOForLightmap);
-        color += surfaceShading(shading, pixelForBakedSpecular, derivedLight, diffuseAOForLightmap);
-        color = max(color, 0);
+        color += max(0, surfaceShading(shading, pixelForBakedSpecular, derivedLight, diffuseAOForLightmap));
     };
+    #if defined(_VRCLV) && !UNITY_SHOULD_SAMPLE_SH
+    if (volumeLight.NoL >= 0.0) 
+    {
+        // derived light contribution from lightmap
+        float diffuseAOForLightmap = min(material.ambientOcclusion * 0.8 + 0.3, 1.0);
+        diffuseAOForLightmap = computeMicroShadowing(volumeLight.NoL, diffuseAOForLightmap);
+        color += max(0, surfaceShading(shading, pixelForBakedSpecular, volumeLight, diffuseAOForLightmap));
+    };
+    #endif
     #endif
 }
 
