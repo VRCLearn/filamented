@@ -392,12 +392,16 @@ half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light d
     nL1z = float3(L1r[2], L1g[2], L1b[2]);
     float3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
 
-    derivedLight.l = dominantDir;
-    half directionality = max(FLT_EPS, length(derivedLight.l));
-    derivedLight.l /= directionality;
+    // Determine the light's direction and directionality
+    half L0_lum = max(FLT_EPS, luminance(L0));
+    half L1_mag = length(dominantDir);
+    half directionality = saturate(L1_mag / L0_lum);
+    derivedLight.l = dominantDir / L1_mag;
+    
+    float3 directionalColor = float3(dot(L1r, derivedLight.l), dot(L1g, derivedLight.l), dot(L1b, derivedLight.l));
+    float3 Li = L0 + directionalColor;
 
-    // Split light into the directional and ambient parts, according to the directionality factor.
-    derivedLight.colorIntensity = float4(irradiance * directionality, 1.0);
+    derivedLight.colorIntensity = float4(Li, 1.0);
     derivedLight.attenuation = directionality;
     derivedLight.NoL = saturate(dot(normal, derivedLight.l));
     #endif
@@ -430,13 +434,17 @@ half3 Irradiance_SampleVRCLightVolumeAdditive(half3 normal, float3 worldPos, out
     nL1y = float3(L1r[1], L1g[1], L1b[1]);
     nL1z = float3(L1r[2], L1g[2], L1b[2]);
     float3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
+    
+    // Determine the light's direction and directionality
+    half L0_lum = max(FLT_EPS, luminance(L0));
+    half L1_mag = length(dominantDir);
+    half directionality = saturate(L1_mag / L0_lum);
+    derivedLight.l = dominantDir / L1_mag;
+    
+    float3 directionalColor = float3(dot(L1r, derivedLight.l), dot(L1g, derivedLight.l), dot(L1b, derivedLight.l));
+    float3 Li = L0 + directionalColor;
 
-    derivedLight.l = dominantDir;
-    half directionality = max(FLT_EPS, length(derivedLight.l));
-    derivedLight.l /= directionality;
-
-    // Split light into the directional and ambient parts, according to the directionality factor.
-    derivedLight.colorIntensity = float4(irradiance * directionality, 1.0);
+    derivedLight.colorIntensity = float4(Li, 1.0);
     derivedLight.attenuation = directionality;
     derivedLight.NoL = saturate(dot(normal, derivedLight.l));
     #endif
