@@ -13,6 +13,7 @@ Shader "Silent/Filamented Extras/Texture Blending Filamented"
         [HeaderEx(Base Settings)]
         [Enum(UV0,0,UV1,1,UV2,2,UV3,3)] _UVSec ("UV for Splat Map", Float) = 0
         [SetKeyword(_SPLATMAP)]_MainTex("Splat Map (Optional) and Texture Scale", 2D) = "black" {}
+        [ToggleUI]_WeightFromDirection("World-Space XYZ to Vertex Colour RGB", Float) = 0
 
         [HeaderEx(Base Color)]
         [ScaleOffset][SingleLine(_ColorA)]_MainTexA ("Albedo (RGB)", 2D) = "white" {}
@@ -164,6 +165,8 @@ Shader "Silent/Filamented Extras/Texture Blending Filamented"
     TEXTURE2D(_BlendMask); SAMPLER(sampler_BlendMask);
     float4 _BlendMask_ST;
     float4 _MaskStr;
+
+    half _WeightFromDirection;
 
 VertexOutputForwardBase vertBase (VertexInput v) 
     { 
@@ -387,6 +390,11 @@ inline MaterialInputs BlendedMaterialSetup (inout float4 i_tex, float4 tangentTo
         dot(float4(i_posWorld.xyz, 1), _UVTransform1),
         dot(float4(i_posWorld.xyz, 1), _UVTransform2)
         );
+        
+    if (_WeightFromDirection)
+    {
+        weights = (abs(worldNormalT));
+    }
 
 #if defined(_TRIPLANAR)
     float4 blendMod = boxmap(TEXTURE2D_ARGS(_BlendMask, sampler_BlendMask),
