@@ -1526,18 +1526,18 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     combineDiffuseAndSpecular(shading, pixel, E, Fd, Fr, color);
 
     #if defined(LIGHTMAP_SPECULAR)
-    PixelParams pixelForBakedSpecular = pixel;
-
-    // Remap roughness to clamp at max roughness without a hard clamp
-    pixelForBakedSpecular.roughness = remap_almostIdentity(pixelForBakedSpecular.roughness,
-        1-getLightmapSpecularMaxSmoothness(), 1-getLightmapSpecularMaxSmoothness()+MIN_ROUGHNESS);
-
-    // Remove diffuse component
-    pixelForBakedSpecular.diffuseColor = 0;
-    
-    // derived light contribution from lightmap
     if (derivedLight.NoL >= 0.0) 
     {
+        PixelParams pixelForBakedSpecular = pixel;
+
+        // Remap roughness to clamp at max roughness without a hard clamp
+        pixelForBakedSpecular.roughness = remap_almostIdentity(pixelForBakedSpecular.roughness,
+            1-getLightmapSpecularMaxSmoothness(), 1-getLightmapSpecularMaxSmoothness()+MIN_ROUGHNESS);
+
+        // Remove diffuse component
+        pixelForBakedSpecular.diffuseColor = 0;
+    
+        // derived light contribution from lightmap
         float diffuseAOForLightmap = min(material.ambientOcclusion * 0.8 + 0.3, 1.0);
         diffuseAOForLightmap = computeMicroShadowing(derivedLight.NoL, diffuseAOForLightmap);
         color += surfaceShading(shading, pixelForBakedSpecular, derivedLight, diffuseAOForLightmap);
