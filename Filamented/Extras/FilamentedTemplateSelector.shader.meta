@@ -6,6 +6,7 @@ ShaderImporter:
   - _MainTex: {instanceID: 0}
   - _BumpMap: {instanceID: 0}
   - _MOESMap: {instanceID: 0}
+  - _EmissionMap: {instanceID: 0}
   - _MainTexDetail: {instanceID: 0}
   - _BumpMapDetail: {instanceID: 0}
   - _MOESMapDetail: {instanceID: 0}

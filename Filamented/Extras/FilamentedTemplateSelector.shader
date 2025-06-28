@@ -7,6 +7,7 @@ Shader "Silent/Filamented Extras/Filamented Selector"
     {
         [CheckDFGTexture]
         [BlendModeSelector(_SrcBlend, _DstBlend, _CustomRenderQueue, _ZWrite, _AtoCmode)] _Mode ("__mode", Float) = 0.0
+        [KeywordEnum(Standard,Cloth)]_Shading("Shading Type", Float) = 0
         [HeaderEx(Base Material)]
         [ScaleOffset][SingleLine(_Color)]_MainTex("Albedo", 2D) = "white" {}
         [HideInInspector]_Color("Color", Color) = (1,1,1,1)
@@ -78,15 +79,22 @@ Shader "Silent/Filamented Extras/Filamented Selector"
     CGINCLUDE
         #pragma multi_compile_local _ _DTRIPLANAR
         #pragma multi_compile_local _ _ADD_EMISSION
-        #pragma skip_variants _METALLICGLOSSMAP _NORMALMAP
+        #pragma multi_compile_local _SHADING_STANDARD _SHADING_CLOTH
+
+        #pragma skip_variants _METALLICGLOSSMAP _NORMALMAP 
+
     	// First, setup what Filamented does. 
     	// Filamented's behaviour is decided by the shading model and what material properties are defined.
     	// These are listed in FilamentMaterialInputs.
     	// You can set up and use anything in the initMaterials function.
 
-		// SHADING_MODEL_CLOTH
 		// SHADING_MODEL_SUBSURFACE
     	// These are *not* currently supported.
+
+        #if defined(_SHADING_CLOTH)
+            #define SHADING_MODEL_CLOTH
+            #define MATERIAL_HAS_SHEEN_COLOR
+        #endif
 
     	// SHADING_MODEL_SPECULAR_GLOSSINESS
     	// If this is not defined, the material will default to metallic/roughness workflow.
@@ -257,7 +265,11 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     MaterialInputs material = (MaterialInputs)0;
     initMaterial(material);
     material.baseColor = baseColor;
+    #if defined(_SHADING_CLOTH)
+    material.sheenColor = lerp(baseColor*baseColor, sqrt(baseColor), metallic);
+    #else
     material.metallic = metallic;
+    #endif
     material.roughness = (_SmoothnessMode == 1) ? smoothness : computeRoughnessFromGlossiness(smoothness);
     material.normal = normalTangent;
     material.emissive.rgb = emission;
@@ -364,6 +376,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             #pragma shader_feature_local _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
             #pragma shader_feature_local _SPECULARHIGHLIGHTS_OFF
             #pragma shader_feature_local _GLOSSYREFLECTIONS_OFF
+            #pragma shader_feature_local _LIGHTMAPSPECULAR
             
             #pragma shader_feature_local _ _BAKERY_RNM _BAKERY_SH _BAKERY_MONOSH
             #pragma shader_feature_local _LTCGI
