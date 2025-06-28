@@ -840,8 +840,8 @@ sealed class TexturePropertyTwoLines : MaterialPropertyDrawer
 			{
 				new BlendModeData("Opaque", "", BlendMode.One, BlendMode.Zero, RenderQueue.Geometry, "Opaque"),
 				new BlendModeData("Cutout", "_ALPHATEST_ON", BlendMode.One, BlendMode.Zero, RenderQueue.AlphaTest, "TransparentCutout"),
-				new BlendModeData("Transparent", "_ALPHABLEND_ON", BlendMode.SrcAlpha, BlendMode.OneMinusSrcAlpha, RenderQueue.Transparent, "Transparent"),
-				new BlendModeData("Fade", "_ALPHAPREMULTIPLY_ON", BlendMode.One, BlendMode.OneMinusSrcAlpha, RenderQueue.Transparent, "Transparent"),
+				new BlendModeData("Transparent", "_ALPHAPREMULTIPLY_ON", BlendMode.SrcAlpha, BlendMode.OneMinusSrcAlpha, RenderQueue.Transparent, "Transparent"),
+				new BlendModeData("Fade", "_ALPHABLEND_ON", BlendMode.One, BlendMode.OneMinusSrcAlpha, RenderQueue.Transparent, "Transparent"),
 				new BlendModeData("Additive", "_ALPHABLEND_ON", BlendMode.One, BlendMode.One, RenderQueue.Transparent, "Transparent")
 			};
 
@@ -885,29 +885,13 @@ sealed class TexturePropertyTwoLines : MaterialPropertyDrawer
 				}
 
 				// Set AlphaToMask for Cutout mode
-				if (!string.IsNullOrEmpty(_alphaToMask) && blendMode == 1)
+				if (!string.IsNullOrEmpty(_alphaToMask))
 				{
-					targetMat.SetInt(_alphaToMask, 1);
-				}
-				else if (!string.IsNullOrEmpty(_alphaToMask))
-				{
-					targetMat.SetInt(_alphaToMask, 0);
+					// Only enable AlphaToMask if the mode is Cutout (1)
+					targetMat.SetInt(_alphaToMask, blendMode == 1 ? 1 : 0);
 				}
 
-				// If the user has overridden the render queue, don't change it
-				if (targetMat.HasProperty(_customRenderQueue))
-				{
-					if (targetMat.renderQueue == -1)
-					{
-						targetMat.SetInt(_customRenderQueue, -1);
-					}
-					int renderQueue = targetMat.GetInt(_customRenderQueue);
-					targetMat.renderQueue = renderQueue > 0 ? renderQueue : (int)data.renderQueue;
-				}
-				else
-				{
-					targetMat.renderQueue = (int)data.renderQueue;
-				}
+    			targetMat.renderQueue = (int)data.renderQueue;
 			}
 		}
     }
