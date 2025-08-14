@@ -17,21 +17,18 @@
 //------------------------------------------------------------------------------
 
 // Spherical harmonics sampling algorithm
-// Unity's default; basic SH sampling
+// Unity's default; basic SH sampling, with L2 SH enabled
 #define SPHERICAL_HARMONICS_DEFAULT         0
-// Geometrics' deringing lightprobe sampling
+// Geometrics' deringing lightprobe sampling, using L1 SH
 #define SPHERICAL_HARMONICS_GEOMETRICS      1
-// Quadratic Zonal Harmonics
+// Activision's Quadratic Zonal Harmonics, using L1 SH
 #define SPHERICAL_HARMONICS_ZH3             2
 
 #define SPHERICAL_HARMONICS SPHERICAL_HARMONICS_ZH3
+// VRC Light Volumes-specific
+#define SPHERICAL_HARMONICS_VRCLV SPHERICAL_HARMONICS_GEOMETRICS
 
-// Whether spherical harmonics sampling applies the L2 contribution.
-// If using Geometrics and ZH3, it is recommended to set this to 0 (disabled),
-// as L2 SH is balanced for adding to basic SH sampling, which can cause ringing artifacts.
-#define SPHERICAL_HARMONICS_USE_L2          0
-
-// Whether to use non-linear sampling on Bakery lightmap modes. 
+// Whether to use non-linear SH sampling on Bakery lightmap modes. 
 // If ZH3 sampling is used, it will be used here. This increases the quality of the directional
 // lighting on lightmapped surfaces, in exchange for a performance cost. 
 #define BAKERY_SHNONLINEAR 0
@@ -281,7 +278,7 @@ float3 Irradiance_SphericalHarmonics(const float3 n, const bool useL2) {
 
     // L2 contribution. 
     // Note that if UNITY_SAMPLE_FULL_SH_PER_PIXEL is not set, L2 will not be added here!
-    #if (SPHERICAL_HARMONICS_USE_L2 == 1)
+    #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_DEFAULT)
         if (useL2) finalSH += SHEvalLinearL2(half4(n, 1.0));
     #endif    
 
@@ -362,24 +359,20 @@ half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light d
     // Compute irradiance using the SH components
     half3 irradiance = 0.0;
 
-    #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_DEFAULT)
+    #if (SPHERICAL_HARMONICS_VRCLV == SPHERICAL_HARMONICS_DEFAULT)
         irradiance.r = dot(L1r, normal.xyz) + L0.r;
         irradiance.g = dot(L1g, normal.xyz) + L0.g;
         irradiance.b = dot(L1b, normal.xyz) + L0.b;
     #endif
 
-    #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_GEOMETRICS)
+    #if (SPHERICAL_HARMONICS_VRCLV == SPHERICAL_HARMONICS_GEOMETRICS)
         irradiance.r = shEvaluateDiffuseL1Geomerics_local(L0.r, L1r, normal.xyz);
         irradiance.g = shEvaluateDiffuseL1Geomerics_local(L0.g, L1g, normal.xyz);
         irradiance.b = shEvaluateDiffuseL1Geomerics_local(L0.b, L1b, normal.xyz);
     #endif
 
-    #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
-        //irradiance = SHEvalLinearL0L1_ZH3Hallucinate(normal.xyz, L0, L1r, L1g, L1b);
-        // Fall back to Geometrics for now.
-        irradiance.r = shEvaluateDiffuseL1Geomerics_local(L0.r, L1r, normal.xyz);
-        irradiance.g = shEvaluateDiffuseL1Geomerics_local(L0.g, L1g, normal.xyz);
-        irradiance.b = shEvaluateDiffuseL1Geomerics_local(L0.b, L1b, normal.xyz);
+    #if (SPHERICAL_HARMONICS_VRCLV == SPHERICAL_HARMONICS_ZH3)
+        irradiance = SHEvalLinearL0L1_ZH3Hallucinate(normal.xyz, L0, L1r, L1g, L1b);
     #endif
     
     #if defined(LIGHTMAP_SPECULAR)
