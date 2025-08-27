@@ -50,9 +50,11 @@ Shader "Silent/Filamented Extras/Filamented Selector"
 		[IfDef(_DTRIPLANAR)]_TriplanarOffset0y ("Y Axis Offset", float) = 0
 		[IfDef(_DTRIPLANAR)]_TriplanarOffset0z ("X Axis Offset", float) = 0
         [Space]
+        _EmissionFluro("Emission Edge Fade Intensity", Range(0, 1)) = 0.0
+        [Space]
         [HeaderEx(System)]
         [Toggle(_LIGHTMAPSPECULAR)]_LightmapSpecular("Lightmap Specular", Range(0, 1)) = 1
-        _LightmapSpecularMaxSmoothness("Lightmap Specular Max Smoothness", Range(0, 1)) = 1
+        [IfDef(_LIGHTMAPSPECULAR)]_LightmapSpecularMaxSmoothness("Lightmap Specular Max Smoothness", Range(0, 1)) = 1
         _ExposureOcclusion("Lightmap Occlusion Sensitivity", Range(0, 1)) = 0.2
         [Space]
         [KeywordEnum(None, SH, RNM, MonoSH)] _Bakery ("Bakery Mode", Int) = 0
@@ -66,6 +68,7 @@ Shader "Silent/Filamented Extras/Filamented Selector"
         [Enum(UnityEngine.Rendering.CullMode)]_CullMode("Cull Mode", Int) = 2
 
         [NonModifiableTextureData][HideInInspector] _DFG("DFG", 2D) = "white" {}
+        
         // Blending state
         [HideInInspector] _SrcBlend ("__src", Float) = 1.0
         [HideInInspector] _DstBlend ("__dst", Float) = 0.0
@@ -81,7 +84,7 @@ Shader "Silent/Filamented Extras/Filamented Selector"
         #pragma multi_compile_local _ _ADD_EMISSION
         #pragma multi_compile_local _SHADING_STANDARD _SHADING_CLOTH
 
-        #pragma skip_variants _METALLICGLOSSMAP _NORMALMAP 
+        #pragma skip_variants _METALLICGLOSSMAP _NORMALMAP _EMISSION
 
     	// First, setup what Filamented does. 
     	// Filamented's behaviour is decided by the shading model and what material properties are defined.
@@ -176,6 +179,8 @@ Shader "Silent/Filamented Extras/Filamented Selector"
     uniform half _EmissionMapPower;
     #endif
 
+    uniform half _EmissionFluro;
+
 	// Vertex functions are called from UnityStandardCore.
 	// You can alter values here, or copy the function in and modify it.
 	VertexOutputForwardBase vertBase (VertexInput v) { return vertForwardBase(v); }
@@ -222,6 +227,12 @@ float3 RNMBlendUnpacked(float3 n1, float3 n2)
     n1 += float3( 0,  0, 1);
     n2 *= float3(-1, -1, 1);
     return n1*dot(n1, n2)/n1.z - n2;
+}
+
+inline float EmissionFluro(float NdotV)
+{
+    float fluroBase = saturate(pow(NdotV, 2));
+    return lerp(1.0 - _EmissionFluro, 1.0, fluroBase);
 }
 
 	// The material function itself!  You can alter the code below to add extra properties. 
@@ -300,6 +311,8 @@ half4 fragForwardBaseTemplate (VertexOutputForwardBase i)
     MyMaterialSetup(i.tex, i.eyeVec.xyz, IN_VIEWDIR4PARALLAX(i), i.tangentToWorldAndPackedData, IN_WORLDPOS(i));
 
     prepareMaterial(shading, material);
+
+    material.emissive *= EmissionFluro(shading.NoV);
 
 #if (defined(_NORMALMAP) && defined(NORMALMAP_SHADOW))
     float noise = noiseR2(i.pos.xy);
