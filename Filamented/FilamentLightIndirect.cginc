@@ -731,7 +731,9 @@ float3 DecodeSHLightmap(half3 L0, half2 lightmapUV, half3 normalWorld, out Light
 
     return irradiance;
 }
+#endif
 
+#if defined(USING_BAKERY_VERTEXLMSH)
 float3 DecodeSHLightmapVertex(half3 L0, half3 ambientSH[3], half3 normalWorld, out Light o_light)
 {
     float3 irradiance;
