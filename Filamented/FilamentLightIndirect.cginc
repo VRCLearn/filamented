@@ -8,6 +8,8 @@
 #include "UnityStandardUtils.cginc"
 #include "UnityLightingCommon.cginc"
 #include "SharedFilteringLib.hlsl"
+#include "SharedSHLib.hlsl"
+#include "SharedLightmapLib.hlsl"
 
 #include "FilamentLightLTCGI.cginc"
 #include "FilamentLightVRCLV.cginc"
@@ -28,9 +30,10 @@
 // VRC Light Volumes-specific
 #define SPHERICAL_HARMONICS_VRCLV SPHERICAL_HARMONICS_GEOMETRICS
 
-// Whether to use non-linear SH sampling on Bakery lightmap modes. 
+
+// Whether to use non-linear SH sampling on Bakery lightmap modes.
 // If ZH3 sampling is used, it will be used here. This increases the quality of the directional
-// lighting on lightmapped surfaces, in exchange for a performance cost. 
+// lighting on lightmapped surfaces, in exchange for a performance cost.
 #define BAKERY_SHNONLINEAR 0
 
 // IBL integration algorithm
@@ -99,164 +102,9 @@ float3 prefilteredDFG(float perceptualRoughness, float NoV) {
 // IBL irradiance implementations
 //------------------------------------------------------------------------------
 
-/* http://www.geomerics.com/wp-content/uploads/2015/08/CEDEC_Geomerics_ReconstructingDiffuseLighting1.pdf */
-float shEvaluateDiffuseL1Geomerics_local(float L0, float3 L1, float3 n)
-{
-    // average energy
-    // Add max0 to fix an issue caused by probes having a negative ambient component (???)
-    // I'm not sure how normal that is but this can't handle it
-    float R0 = max(L0, 0);
-
-    // avg direction of incoming light
-    float3 R1 = 0.5f * L1;
-
-    // directional brightness
-    float lenR1 = length(R1);
-
-    // linear angle between normal and direction 0-1
-    float q = dot(normalize(R1), n) * 0.5 + 0.5;
-    q = saturate(q); // Thanks to ScruffyRuffles for the bug identity.
-
-    // power for q
-    // lerps from 1 (linear) to 3 (cubic) based on directionality
-    float p = 1.0f + 2.0f * lenR1 / R0;
-
-    // dynamic range constant
-    // should vary between 4 (highly directional) and 0 (ambient)
-    float a = (1.0f - lenR1 / R0) / (1.0f + lenR1 / R0);
-
-    return R0 * (a + (1.0f - a) * (p + 1.0f) * pow(q, p));
-}
-
-/*
-// Paper: ZH3: Quadratic Zonal Harmonics, i3D 2024. https://torust.me/ZH3.pdf
-// Code based on paper and demo https://www.shadertoy.com/view/Xfj3RK
-// https://gist.github.com/pema99/f735ca33d1299abe0e143ee94fc61e73
-*/
-
-// L1 radiance = L1 irradiance * PI / Y_1 / AHat_1
-// PI / (sqrt(3 / PI) / 2) / ((2 * PI) / 3) = sqrt(3 * PI)
-const static float L0IrradianceToRadiance = 2 * sqrt(UNITY_PI);
-
-// L0 radiance = L0 irradiance * PI / Y_0 / AHat_0
-// PI / (sqrt(1 / PI) / 2) / PI = 2 * sqrt(PI)
-const static float L1IrradianceToRadiance = sqrt(3 * UNITY_PI);
-
-const static float4 L0L1IrradianceToRadiance = float4(L0IrradianceToRadiance, L1IrradianceToRadiance, L1IrradianceToRadiance, L1IrradianceToRadiance);
-
-float SHEvalLinearL0L1_ZH3Hallucinate(float4 sh, float3 normal)
-{
-    float4 radiance = sh * L0L1IrradianceToRadiance;
-
-    float3 zonalAxis = float3(radiance.w, radiance.y, radiance.z);
-    float l1Length = length(zonalAxis);
-    zonalAxis /= l1Length;
-
-    float ratio = l1Length / radiance.x;
-    float zonalL2Coeff = radiance.x * ratio * (0.08 + 0.6 * ratio); // Curve-fit.
-
-    float fZ = dot(zonalAxis, normal);
-    float zhNormal = sqrt(5.0f / (16.0f * UNITY_PI)) * (3.0f * fZ * fZ - 1.0f);
-
-    float result = dot(sh, float4(1, float3(normal.y, normal.z, normal.x)));
-    result += 0.25f * zhNormal * zonalL2Coeff;
-    return result;
-}
-
-// Evaluate irradiance in direction normal from the linear SH sh,
-// hallucinating the ZH3 coefficient and then using that and linear SH
-// for reconstruction.
-float3 SHEvalLinearL0L1_ZH3Hallucinate(float3 normal)
-{
-    float3 shL0 = float3(unity_SHAr.w, unity_SHAg.w, unity_SHAb.w) +
-        float3(unity_SHBr.z, unity_SHBg.z, unity_SHBb.z) / 3.0;
-    float3 shL1_1 = float3(unity_SHAr.y, unity_SHAg.y, unity_SHAb.y);
-    float3 shL1_2 = float3(unity_SHAr.z, unity_SHAg.z, unity_SHAb.z);
-    float3 shL1_3 = float3(unity_SHAr.x, unity_SHAg.x, unity_SHAb.x);
-
-    float3 result = 0.0;
-    float4 a = float4(shL0.r, shL1_1.r, shL1_2.r, shL1_3.r);
-    float4 b = float4(shL0.g, shL1_1.g, shL1_2.g, shL1_3.g);
-    float4 c = float4(shL0.b, shL1_1.b, shL1_2.b, shL1_3.b);
-    result.r = SHEvalLinearL0L1_ZH3Hallucinate(a, normal);
-    result.g = SHEvalLinearL0L1_ZH3Hallucinate(b, normal);
-    result.b = SHEvalLinearL0L1_ZH3Hallucinate(c, normal);
-    return result;
-}
-
-float3 SHEvalLinearL0L1_ZH3Hallucinate(float3 normal, float3 L0, 
-    float3 L1r, float3 L1g, float3 L1b)
-{
-    float3 shL0 = L0;
-    float3 shL1_1 = float3(L1r.y, L1g.y, L1b.y);
-    float3 shL1_2 = float3(L1r.z, L1g.z, L1b.z);
-    float3 shL1_3 = float3(L1r.x, L1g.x, L1b.x);
-
-    float3 result = 0.0;
-    float4 a = float4(shL0.r, shL1_1.r, shL1_2.r, shL1_3.r);
-    float4 b = float4(shL0.g, shL1_1.g, shL1_2.g, shL1_3.g);
-    float4 c = float4(shL0.b, shL1_1.b, shL1_2.b, shL1_3.b);
-    result.r = SHEvalLinearL0L1_ZH3Hallucinate(a, normal);
-    result.g = SHEvalLinearL0L1_ZH3Hallucinate(b, normal);
-    result.b = SHEvalLinearL0L1_ZH3Hallucinate(c, normal);
-    return result;
-}
-
-// Evaluate irradiance in direction normal from the linear SH sh,
-// computing a shared luminance axis from the linear components,
-// hallucinating the ZH3 coefficients along that axis,
-// and then using ZH3 and linear SH for reconstruction in the direction normal.
-float3 SHEvalLinearL0L1_ZH3Hallucinate_LumAxis(float3 direction)
-{
-    // Get linear SH coefficients from Unity shader uniforms (without L2 folded into L0)
-    float3 shL0 = float3(unity_SHAr.w, unity_SHAg.w, unity_SHAb.w) +
-        float3(unity_SHBr.z, unity_SHBg.z, unity_SHBb.z) / 3.0;
-    float3 shL1_1 = float3(unity_SHAr.y, unity_SHAg.y, unity_SHAb.y);
-    float3 shL1_2 = float3(unity_SHAr.z, unity_SHAg.z, unity_SHAb.z);
-    float3 shL1_3 = float3(unity_SHAr.x, unity_SHAg.x, unity_SHAb.x);
-    float3 sh[4] = { shL0, shL1_1, shL1_2, shL1_3 };
-
-    // Deconvolve irradiance -> radiance
-    float3 radianceSH[4];
-    for (int i = 0; i < 3; i++)
-    {
-        radianceSH[0][i] = sh[0][i] * L0IrradianceToRadiance;
-        radianceSH[1][i] = sh[1][i] * L1IrradianceToRadiance;
-        radianceSH[2][i] = sh[2][i] * L1IrradianceToRadiance;
-        radianceSH[3][i] = sh[3][i] * L1IrradianceToRadiance;
-    }
-
-    // Use the zonal axis from the luminance SH.
-    const float3 lumCoeffs = float3(0.2126f, 0.7152f, 0.0722f); // sRGB luminance.
-    float3 zonalAxis = normalize(float3(dot(radianceSH[3], lumCoeffs), dot(radianceSH[1], lumCoeffs), dot(radianceSH[2], lumCoeffs)));
-    float3 ratio = 0.0;
-    ratio.r = abs(dot(float3(radianceSH[3].r, radianceSH[1].r, radianceSH[2].r), zonalAxis));
-    ratio.g = abs(dot(float3(radianceSH[3].g, radianceSH[1].g, radianceSH[2].g), zonalAxis));
-    ratio.b = abs(dot(float3(radianceSH[3].b, radianceSH[1].b, radianceSH[2].b), zonalAxis));
-    ratio /= radianceSH[0];
-    float3 zonalL2Coeff = radianceSH[0] * (0.08f * ratio + 0.6f * ratio * ratio); // Curve-fit; Section 3.4.3
-    float fZ = dot(zonalAxis, direction);
-    float zhDir = sqrt(5.0f / (16.0f * UNITY_PI)) * (3.0f * fZ * fZ - 1.0f);
-
-    // Evaluate irradiance from linear SH in the given direction.
-    float4 shDir = float4(1, direction.y, direction.z, direction.x);
-    float3 result = float3(0.0, 0.0, 0.0);
-    result += sh[0] * shDir[0];
-    result += sh[1] * shDir[1];
-    result += sh[2] * shDir[2];
-    result += sh[3] * shDir[3];
-
-    // Add irradiance from the ZH3 term. zonalL2Coeff is the ZH3 coefficient for a radiance signal, so we need to
-    // multiply by 1/4 (the L2 zonal scale for a normalized clamped cosine kernel) to evaluate irradiance.
-    result += 0.25f * zonalL2Coeff * zhDir;
-
-    return result;
-}
-
-
 float3 Irradiance_SphericalHarmonics(const float3 n, const bool useL2) {
-    // Uses Unity's functions for reading SH. 
-    float3 finalSH = float3(0,0,0); 
+    // Uses Unity's functions for reading SH.
+    float3 finalSH = float3(0,0,0);
 
     #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_DEFAULT)
         finalSH = SHEvalLinearL0L1(half4(n, 1.0));
@@ -276,11 +124,11 @@ float3 Irradiance_SphericalHarmonics(const float3 n, const bool useL2) {
         finalSH = SHEvalLinearL0L1_ZH3Hallucinate(half4(n, 1.0));
     #endif
 
-    // L2 contribution. 
+    // L2 contribution.
     // Note that if UNITY_SAMPLE_FULL_SH_PER_PIXEL is not set, L2 will not be added here!
     #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_DEFAULT)
         if (useL2) finalSH += SHEvalLinearL2(half4(n, 1.0));
-    #endif    
+    #endif
 
     return finalSH;
 }
@@ -351,7 +199,7 @@ half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light d
 {
     derivedLight = (Light)0;
 
-    // Bias sampling by surface normal to avoid artifacts 
+    // Bias sampling by surface normal to avoid artifacts
     // Fetch Spherical Harmonics (SH) components from the VRC Light Volume
     float3 L0, L1r, L1g, L1b;
     LightVolumeSH(worldPos, L0, L1r, L1g, L1b, normal * getLightVolumeSurfaceBias());
@@ -374,7 +222,7 @@ half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light d
     #if (SPHERICAL_HARMONICS_VRCLV == SPHERICAL_HARMONICS_ZH3)
         irradiance = SHEvalLinearL0L1_ZH3Hallucinate(normal.xyz, L0, L1r, L1g, L1b);
     #endif
-    
+
     #if defined(LIGHTMAP_SPECULAR)
     float3 nL1x; float3 nL1y; float3 nL1z;
     nL1x = float3(L1r[0], L1g[0], L1b[0]);
@@ -387,7 +235,7 @@ half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light d
     half L1_mag = length(dominantDir);
     half directionality = saturate(L1_mag / L0_lum);
     derivedLight.l = dominantDir / L1_mag;
-    
+
     float3 directionalColor = float3(dot(L1r, derivedLight.l), dot(L1g, derivedLight.l), dot(L1b, derivedLight.l));
     float3 Li = L0 + max(0, directionalColor);
 
@@ -410,11 +258,11 @@ half3 Irradiance_SampleVRCLightVolumeAdditive(half3 normal, float3 worldPos, out
     // Compute irradiance using the SH components
     half3 irradiance = 0.0;
 
-    // Doesn't support non-linear evaluation, so just evaluate normally. 
+    // Doesn't support non-linear evaluation, so just evaluate normally.
     irradiance.r = dot(L1r, normal.xyz) + L0.r;
     irradiance.g = dot(L1g, normal.xyz) + L0.g;
     irradiance.b = dot(L1b, normal.xyz) + L0.b;
-    
+
     // Add derived light to existing derived light
     #if defined(LIGHTMAP_SPECULAR)
     float3 nL1x; float3 nL1y; float3 nL1z;
@@ -422,13 +270,13 @@ half3 Irradiance_SampleVRCLightVolumeAdditive(half3 normal, float3 worldPos, out
     nL1y = float3(L1r[1], L1g[1], L1b[1]);
     nL1z = float3(L1r[2], L1g[2], L1b[2]);
     float3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
-    
+
     // Determine the light's direction and directionality
     half L0_lum = max(FLT_EPS, luminance(L0));
     half L1_mag = length(dominantDir);
     half directionality = saturate(L1_mag / L0_lum);
     derivedLight.l = dominantDir / L1_mag;
-    
+
     float3 directionalColor = float3(dot(L1r, derivedLight.l), dot(L1g, derivedLight.l), dot(L1b, derivedLight.l));
     float3 Li = L0 + max(0, directionalColor);
 
@@ -446,8 +294,8 @@ half3 Irradiance_SphericalHarmonicsUnity (half3 normal, half3 ambient, float3 wo
     half3 ambient_contrib = 0.0;
     derivedLight = (Light)0;
 
-    // Gather VRC Light Volumes data, if present. 
-    // This replaces the result of light probes. 
+    // Gather VRC Light Volumes data, if present.
+    // This replaces the result of light probes.
 #if defined(_VRCLV)
     #if UNITY_LIGHT_PROBE_PROXY_VOLUME // I feel like this is an insane edge case
         if (unity_ProbeVolumeParams.x == 1.0)
@@ -515,325 +363,6 @@ float3 Irradiance_RoughnessOne(const float3 n) {
 }
 */
 
-float4 UnityLightmap_ColorIntensitySeperated(float3 lightmap) {
-    lightmap += 0.000001;
-    return float4(lightmap.xyz / 1, 1);
-}
-
-float4 SampleLightmapBicubic(float2 uv)
-{
-    #if defined(SHADER_API_D3D11)
-        float width, height;
-        unity_Lightmap.GetDimensions(width, height);
-
-        float4 unity_Lightmap_TexelSize = float4(width, height, 1.0/width, 1.0/height);
-
-        return SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(unity_Lightmap, samplerunity_Lightmap),
-            uv, unity_Lightmap_TexelSize);
-    #else
-        return SAMPLE_TEXTURE2D(unity_Lightmap, samplerunity_Lightmap, uv);
-    #endif
-}
-
-float4 SampleLightmapDirBicubic(float2 uv)
-{
-    // We don't need to sample the directionality with bicubic filtering
-    #if defined(SHADER_API_D3D11) && false
-        float width, height;
-        unity_LightmapInd.GetDimensions(width, height);
-
-        float4 unity_LightmapInd_TexelSize = float4(width, height, 1.0/width, 1.0/height);
-
-        return SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(unity_LightmapInd, samplerunity_Lightmap),
-            uv, unity_LightmapInd_TexelSize);
-    #else
-        return SAMPLE_TEXTURE2D(unity_LightmapInd, samplerunity_Lightmap, uv);
-    #endif
-}
-
-float4 SampleDynamicLightmapBicubic(float2 uv)
-{
-    #if defined(SHADER_API_D3D11)
-        float width, height;
-        unity_DynamicLightmap.GetDimensions(width, height);
-
-        float4 unity_DynamicLightmap_TexelSize = float4(width, height, 1.0/width, 1.0/height);
-
-        return SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(unity_DynamicLightmap, samplerunity_DynamicLightmap),
-            uv, unity_DynamicLightmap_TexelSize);
-    #else
-        return SAMPLE_TEXTURE2D(unity_DynamicLightmap, samplerunity_DynamicLightmap, uv);
-    #endif
-}
-
-float4 SampleDynamicLightmapDirBicubic(float2 uv)
-{
-    // We don't need to sample the directionality with bicubic filtering
-    #if defined(SHADER_API_D3D11) && false
-        float width, height;
-        unity_DynamicDirectionality.GetDimensions(width, height);
-
-        float4 unity_DynamicDirectionality_TexelSize = float4(width, height, 1.0/width, 1.0/height);
-
-        return SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(unity_DynamicDirectionality, samplerunity_DynamicLightmap),
-            uv, unity_DynamicDirectionality_TexelSize);
-    #else
-        return SAMPLE_TEXTURE2D(unity_DynamicDirectionality, samplerunity_DynamicLightmap, uv);
-    #endif
-}
-
-inline float3 DecodeDirectionalLightmapSpecular(half3 color, half4 dirTex, half3 normalWorld, 
-    const bool isRealtimeLightmap, fixed4 realtimeNormalTex, out Light o_light)
-{
-    o_light = (Light)0;
-    o_light.colorIntensity = float4(color, 1.0);
-    o_light.l = dirTex.xyz * 2 - 1;
-
-    // The length of the direction vector is the light's "directionality", i.e. 1 for all light coming from this direction,
-    // lower values for more spread out, ambient light.
-    half directionality = max(0.001, length(o_light.l));
-    o_light.l /= directionality;
-
-    #ifdef DYNAMICLIGHTMAP_ON
-    if (isRealtimeLightmap)
-    {
-        // Realtime directional lightmaps' intensity needs to be divided by N.L
-        // to get the incoming light intensity. Baked directional lightmaps are already
-        // output like that (including the max() to prevent div by zero).
-        half3 realtimeNormal = realtimeNormalTex.xyz * 2 - 1;
-        o_light.colorIntensity /= max(0.125, dot(realtimeNormal, o_light.l));
-    }
-    #endif
-
-    // Split light into the directional and ambient parts, according to the directionality factor.
-    half3 ambient = o_light.colorIntensity * (1 - directionality);
-    o_light.colorIntensity = o_light.colorIntensity * directionality;
-    o_light.attenuation = directionality;
-
-    o_light.NoL = saturate(dot(normalWorld, o_light.l));
-
-    return color * lerp(1.0, o_light.NoL, directionality);
-}
-
-#if defined(USING_BAKERY) && defined(LIGHTMAP_ON)
-// needs specular variant?
-float3 DecodeRNMLightmap(half3 color, half2 lightmapUV, half3 normalTangent, float3x3 tangentToWorld, out Light o_light)
-{
-    const float rnmBasis0 = float3(0.816496580927726f, 0, 0.5773502691896258f);
-    const float rnmBasis1 = float3(-0.4082482904638631f, 0.7071067811865475f, 0.5773502691896258f);
-    const float rnmBasis2 = float3(-0.4082482904638631f, -0.7071067811865475f, 0.5773502691896258f);
-
-    float3 irradiance;
-    o_light = (Light)0;
-
-    #if defined(SHADER_API_D3D11)
-        float width, height;
-        _RNM0.GetDimensions(width, height);
-
-        float4 rnm_TexelSize = float4(width, height, 1.0/width, 1.0/height);
-        
-        float3 rnm0 = DecodeLightmap(SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM0, sampler_RNM0), lightmapUV, rnm_TexelSize));
-        float3 rnm1 = DecodeLightmap(SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM1, sampler_RNM0), lightmapUV, rnm_TexelSize));
-        float3 rnm2 = DecodeLightmap(SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM2, sampler_RNM0), lightmapUV, rnm_TexelSize));
-    #else
-        float3 rnm0 = DecodeLightmap(SAMPLE_TEXTURE2D(_RNM0, sampler_RNM0, lightmapUV));
-        float3 rnm1 = DecodeLightmap(SAMPLE_TEXTURE2D(_RNM1, sampler_RNM0, lightmapUV));
-        float3 rnm2 = DecodeLightmap(SAMPLE_TEXTURE2D(_RNM2, sampler_RNM0, lightmapUV));
-    #endif
-
-    normalTangent.g *= -1;
-
-    irradiance =  saturate(dot(rnmBasis0, normalTangent)) * rnm0
-                + saturate(dot(rnmBasis1, normalTangent)) * rnm1
-                + saturate(dot(rnmBasis2, normalTangent)) * rnm2;
-
-    #if defined(LIGHTMAP_SPECULAR)
-    float3 dominantDirT = rnmBasis0 * luminance(rnm0) +
-                          rnmBasis1 * luminance(rnm1) +
-                          rnmBasis2 * luminance(rnm2);
-
-    float3 dominantDirTN = normalize(dominantDirT);
-    float3 specColor = saturate(dot(rnmBasis0, dominantDirTN)) * rnm0 +
-                       saturate(dot(rnmBasis1, dominantDirTN)) * rnm1 +
-                       saturate(dot(rnmBasis2, dominantDirTN)) * rnm2;                        
-
-    o_light.l = normalize(mul(tangentToWorld, dominantDirT));
-    half directionality = max(0.001, length(o_light.l));
-    o_light.l /= directionality;
-
-    // Split light into the directional and ambient parts, according to the directionality factor.
-    o_light.colorIntensity = float4(specColor * directionality, 1.0);
-    o_light.attenuation = directionality;
-    o_light.NoL = saturate(dot(normalTangent, dominantDirTN));
-    #endif
-
-    return irradiance;
-}
-
-float3 DecodeSHLightmap(half3 L0, half2 lightmapUV, half3 normalWorld, out Light o_light)
-{
-    float3 irradiance;
-    o_light = (Light)0;
-
-    #if defined(SHADER_API_D3D11)
-        float width, height;
-        _RNM0.GetDimensions(width, height);
-
-        float4 rnm_TexelSize = float4(width, height, 1.0/width, 1.0/height);
-        
-        float3 nL1x = SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM0, sampler_RNM0), lightmapUV, rnm_TexelSize);
-        float3 nL1y = SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM1, sampler_RNM0), lightmapUV, rnm_TexelSize);
-        float3 nL1z = SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM2, sampler_RNM0), lightmapUV, rnm_TexelSize);
-    #else
-        float3 nL1x = SAMPLE_TEXTURE2D(_RNM0, sampler_RNM0, lightmapUV);
-        float3 nL1y = SAMPLE_TEXTURE2D(_RNM1, sampler_RNM0, lightmapUV);
-        float3 nL1z = SAMPLE_TEXTURE2D(_RNM2, sampler_RNM0, lightmapUV);
-    #endif
-
-    nL1x = nL1x * 2 - 1;
-    nL1y = nL1y * 2 - 1;
-    nL1z = nL1z * 2 - 1;
-    float3 L1x = nL1x * L0 * 2;
-    float3 L1y = nL1y * L0 * 2;
-    float3 L1z = nL1z * L0 * 2;
-
-    #ifdef BAKERY_SHNONLINEAR
-        float lumaL0 = dot(L0, float(1));
-        float lumaL1x = dot(L1x, float(1));
-        float lumaL1y = dot(L1y, float(1));
-        float lumaL1z = dot(L1z, float(1));
-
-        float lumaSH = shEvaluateDiffuseL1Geomerics_local(lumaL0, float3(lumaL1x, lumaL1y, lumaL1z), normalWorld);
-
-        #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
-            lumaSH = SHEvalLinearL0L1_ZH3Hallucinate(float4(lumaL0, lumaL1y, lumaL1z, lumaL1x), normalWorld);
-        #endif
-
-        irradiance = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
-        float regularLumaSH = dot(irradiance, 1);
-        irradiance *= lerp(1, lumaSH / regularLumaSH, saturate(regularLumaSH*16));
-    #else
-        irradiance = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
-    #endif
-
-    #if defined(LIGHTMAP_SPECULAR)
-    float3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
-
-    o_light.l = dominantDir;
-    half directionality = max(0.001, length(o_light.l));
-    o_light.l /= directionality;
-
-    // Split light into the directional and ambient parts, according to the directionality factor.
-    o_light.colorIntensity = float4(irradiance * directionality, 1.0);
-    o_light.attenuation = directionality;
-    o_light.NoL = saturate(dot(normalWorld, o_light.l));
-    #endif
-
-    return irradiance;
-}
-#endif
-
-#if defined(USING_BAKERY_VERTEXLMSH)
-float3 DecodeSHLightmapVertex(half3 L0, half3 ambientSH[3], half3 normalWorld, out Light o_light)
-{
-    float3 irradiance;
-    o_light = (Light)0;
-
-    float3 nL1x = ambientSH[0];
-    float3 nL1y = ambientSH[1];
-    float3 nL1z = ambientSH[2];
-
-    nL1x = nL1x * 2 - 1;
-    nL1y = nL1y * 2 - 1;
-    nL1z = nL1z * 2 - 1;
-    float3 L1x = nL1x * L0 * 2;
-    float3 L1y = nL1y * L0 * 2;
-    float3 L1z = nL1z * L0 * 2;
-
-    #ifdef BAKERY_SHNONLINEAR
-        float lumaL0 = dot(L0, float(1));
-        float lumaL1x = dot(L1x, float(1));
-        float lumaL1y = dot(L1y, float(1));
-        float lumaL1z = dot(L1z, float(1));
-        float lumaSH = shEvaluateDiffuseL1Geomerics_local(lumaL0, float3(lumaL1x, lumaL1y, lumaL1z), normalWorld);
-
-        #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
-            lumaSH = SHEvalLinearL0L1_ZH3Hallucinate(float4(lumaL0, lumaL1y, lumaL1z, lumaL1x), normalWorld);
-        #endif
-
-        irradiance = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
-        float regularLumaSH = dot(irradiance, 1);
-        irradiance *= lerp(1, lumaSH / regularLumaSH, saturate(regularLumaSH*16));
-    #else
-        irradiance = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
-    #endif
-
-    #if defined(LIGHTMAP_SPECULAR)
-    float3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
-
-    o_light.l = dominantDir;
-    half directionality = max(0.001, length(o_light.l));
-    o_light.l /= directionality;
-
-    // Split light into the directional and ambient parts, according to the directionality factor.
-    o_light.colorIntensity = float4(irradiance * directionality, 1.0);
-    o_light.attenuation = directionality;
-    o_light.NoL = saturate(dot(normalWorld, o_light.l));
-    #endif
-
-    return irradiance;
-}
-#endif
-
-#if defined(_BAKERY_MONOSH)
-float3 DecodeMonoSHLightmap(half3 L0, half3 dominantDir, half3 normalWorld, out Light o_light, const bool remapDir = true)
-{
-    o_light = (Light)0;
-
-    // Vertex mode is already in -1 to 1 range.
-    float3 nL1 = remapDir? dominantDir * 2 - 1 : dominantDir;
-    float3 L1x = nL1.x * L0 * 2;
-    float3 L1y = nL1.y * L0 * 2;
-    float3 L1z = nL1.z * L0 * 2;
-
-    float3 sh;
-
-    #if BAKERY_SHNONLINEAR
-        float lumaL0 = dot(L0, 1);
-        float lumaL1x = dot(L1x, 1);
-        float lumaL1y = dot(L1y, 1);
-        float lumaL1z = dot(L1z, 1);
-        float lumaSH = shEvaluateDiffuseL1Geomerics_local(lumaL0, float3(lumaL1x, lumaL1y, lumaL1z), normalWorld);
-
-        #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
-            lumaSH = SHEvalLinearL0L1_ZH3Hallucinate(float4(lumaL0, lumaL1y, lumaL1z, lumaL1x), normalWorld);
-        #endif
-
-        sh = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
-        float regularLumaSH = dot(sh, 1);
-
-        sh *= lerp(1, lumaSH / regularLumaSH, saturate(regularLumaSH*16));
-    #else
-        sh = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
-    #endif
-
-    #if defined(LIGHTMAP_SPECULAR)
-    dominantDir = nL1;
-
-    o_light.l = dominantDir;
-    half directionality = max(0.001, length(o_light.l));
-    o_light.l /= directionality;
-
-    // Split light into the directional and ambient parts, according to the directionality factor.
-    o_light.colorIntensity = float4(L0 * directionality, 1.0);
-    o_light.attenuation = directionality;
-    o_light.NoL = saturate(dot(normalWorld, o_light.l));
-    #endif
-
-    return sh;
-}
-#endif
-
 float IrradianceToExposureOcclusion(float3 irradiance)
 {
     return saturate(length(irradiance + FLT_EPS) * getExposureOcclusionBias());
@@ -844,8 +373,8 @@ float3 UnityGI_Irradiance(ShadingParams shading, float3 tangentNormal, out float
 {
     float3 irradiance = shading.ambient;
     // In order for the exposure occlusion to handle mixed lightmaps and etc well, we accumulate
-    // irradiance seperately, and calculate the exposure occlusion from that to avoid having directionality influence it. 
-    float3 irradianceForAO; 
+    // irradiance seperately, and calculate the exposure occlusion from that to avoid having directionality influence it.
+    float3 irradianceForAO;
     occlusion = 1.0;
     derivedLight = (Light)0;
 
@@ -884,7 +413,7 @@ float3 UnityGI_Irradiance(ShadingParams shading, float3 tangentNormal, out float
                     irradiance = SubtractMainLightWithRealtimeAttenuationFromLightmap (irradiance, shading.attenuation, bakedColorTex, shading.normal);
                 #endif
 
-                #if defined(LIGHTMAP_SPECULAR) 
+                #if defined(LIGHTMAP_SPECULAR)
                     irradiance = DecodeDirectionalLightmapSpecular(bakedColor, bakedDirTex, shading.normal, false, 0, derivedLight);
                 #endif
             #endif
@@ -950,18 +479,18 @@ float3 UnityGI_Irradiance(ShadingParams shading, float3 tangentNormal, out float
                     #if defined(LIGHTMAP_SHADOW_MIXING) && !defined(SHADOWS_SHADOWMASK) && defined(SHADOWS_SCREEN)
                         irradiance = SubtractMainLightWithRealtimeAttenuationFromLightmap (irradiance, shading.attenuation, bakedColorTex, shading.normal);
                     #endif
-                    #if defined(LIGHTMAP_SPECULAR) 
+                    #if defined(LIGHTMAP_SPECULAR)
                         irradiance = DecodeDirectionalLightmapSpecular(shading.ambient, shading.ambientDir, shading.normal, false, 0, derivedLight);
                     #endif
-                #endif 
+                #endif
             #else
                 // No directionality, just light colour.
-                // Irradiance and IrradianceForAO already contain the irradiance, so just handle subtractive lighting. 
+                // Irradiance and IrradianceForAO already contain the irradiance, so just handle subtractive lighting.
                 #if defined(LIGHTMAP_SHADOW_MIXING) && !defined(SHADOWS_SHADOWMASK) && defined(SHADOWS_SCREEN)
                     irradiance = SubtractMainLightWithRealtimeAttenuationFromLightmap(irradiance, shading.attenuation, bakedColorTex, shading.normal);
                 #endif
             #endif
-        #endif 
+        #endif
     }
     #endif
 
@@ -1042,9 +571,9 @@ half3 Unity_GlossyEnvironment_local (UNITY_ARGS_TEXCUBE(tex), half4 hdr, Unity_G
 {
     half perceptualRoughness = glossIn.roughness /* perceptualRoughness */ ;
 
-    // Workaround for issue where objects are blurrier than they should be 
+    // Workaround for issue where objects are blurrier than they should be
     // due to specular AA.
-    #if !defined(TARGET_MOBILE) && defined(GEOMETRIC_SPECULAR_AA) 
+    #if !defined(TARGET_MOBILE) && defined(GEOMETRIC_SPECULAR_AA)
     float roughnessAdjustment = 1-perceptualRoughness;
     roughnessAdjustment = MIN_PERCEPTUAL_ROUGHNESS * roughnessAdjustment * roughnessAdjustment;
     perceptualRoughness = perceptualRoughness - roughnessAdjustment;
@@ -1157,7 +686,7 @@ float3 getReflectedVector(const ShadingParams shading, const PixelParams pixel, 
 
 #if IBL_INTEGRATION == IBL_INTEGRATION_IMPORTANCE_SAMPLING
 
-void isEvaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel, 
+void isEvaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel,
     float specularAO, inout float3 Fd, inout float3 Fr) {
 #if defined(MATERIAL_HAS_CLEAR_COAT)
 #if defined(MATERIAL_HAS_NORMAL) || defined(MATERIAL_HAS_CLEAR_COAT_NORMAL)
@@ -1193,7 +722,7 @@ void isEvaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel
 // IBL evaluation
 //------------------------------------------------------------------------------
 
-void evaluateClothIndirectDiffuseBRDF(const ShadingParams shading, const PixelParams pixel, 
+void evaluateClothIndirectDiffuseBRDF(const ShadingParams shading, const PixelParams pixel,
     inout float diffuse) {
 #if defined(SHADING_MODEL_CLOTH)
 #if defined(MATERIAL_HAS_SUBSURFACE_COLOR)
@@ -1203,7 +732,7 @@ void evaluateClothIndirectDiffuseBRDF(const ShadingParams shading, const PixelPa
 #endif
 }
 
-void evaluateSheenIBL(const ShadingParams shading, const PixelParams pixel, 
+void evaluateSheenIBL(const ShadingParams shading, const PixelParams pixel,
     float diffuseAO, inout float3 Fd, inout float3 Fr) {
 #if !defined(SHADING_MODEL_CLOTH) && !defined(SHADING_MODEL_SUBSURFACE)
 #if defined(MATERIAL_HAS_SHEEN_COLOR)
@@ -1219,7 +748,7 @@ void evaluateSheenIBL(const ShadingParams shading, const PixelParams pixel,
 #endif
 }
 
-void evaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel, 
+void evaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel,
     float diffuseAO, inout float3 Fd, inout float3 Fr) {
 #if IBL_INTEGRATION == IBL_INTEGRATION_IMPORTANCE_SAMPLING
     float specularAO = computeSpecularAO(shading.NoV, diffuseAO, pixel.clearCoatRoughness);
@@ -1248,7 +777,7 @@ void evaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel,
 #endif
 }
 
-void evaluateSubsurfaceIBL(const ShadingParams shading, const PixelParams pixel, 
+void evaluateSubsurfaceIBL(const ShadingParams shading, const PixelParams pixel,
     const float3 diffuseIrradiance, inout float3 Fd, inout float3 Fr) {
 #if defined(SHADING_MODEL_SUBSURFACE)
     float3 viewIndependent = diffuseIrradiance;
@@ -1312,7 +841,7 @@ void refractionThinSphere(const ShadingParams shading, const PixelParams pixel,
 }
 
 void applyRefraction(
-    const ShadingParams shading, 
+    const ShadingParams shading,
     const PixelParams pixel,
     float3 E, float3 Fd, float3 Fr,
     inout float3 color) {
@@ -1409,7 +938,7 @@ void combineDiffuseAndSpecular(const ShadingParams shading, const PixelParams pi
 #endif
 }
 
-void evaluateIBL(const ShadingParams shading, const MaterialInputs material, const PixelParams pixel, 
+void evaluateIBL(const ShadingParams shading, const MaterialInputs material, const PixelParams pixel,
     inout float3 color) {
     float ssao = 1.0; // Not implemented
     float lightmapAO = 1.0; // Specular-only AO derived from baked lighting and exposure occlusion setting
@@ -1423,7 +952,7 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     // Gather Unity GI data
     UnityGIInput unityData = InitialiseUnityGIInput(shading, pixel);
 
-    float3 unityIrradiance = UnityGI_Irradiance(shading, tangentNormal, 
+    float3 unityIrradiance = UnityGI_Irradiance(shading, tangentNormal,
         /*out*/ lightmapAO, /*out*/ derivedLight);
 
     // specular layer
@@ -1451,14 +980,14 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
 
     LTCGI_Contribution(
         acc,
-        shading.position, 
-        shading.normal, 
-        shading.view, 
-        pixel.perceptualRoughness, 
+        shading.position,
+        shading.normal,
+        shading.view,
+        pixel.perceptualRoughness,
         (shading.lightmapUV.xy - unity_LightmapST.zw) / unity_LightmapST.xy
     );
 
-    // Apply specular AO seperately for LTCGI pass, as it is a seperate set of lights. 
+    // Apply specular AO seperately for LTCGI pass, as it is a seperate set of lights.
     float ltc_specularAO = computeSpecularAO(shading.NoV, diffuseAO, pixel.roughness);
     float3 ltc_Fr =  E * acc.specular;
 
@@ -1509,10 +1038,10 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
 
     // clear coat layer
     evaluateClearCoatIBL(shading, pixel, diffuseAO, Fd, Fr);
-    
+
     // Note: iblLuminance is already premultiplied by the exposure
     combineDiffuseAndSpecular(shading, pixel, E, Fd, Fr, color);
-    
+
     #if defined(LIGHTMAP_SPECULAR)
     PixelParams pixelForBakedSpecular = pixel;
 
@@ -1523,7 +1052,7 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     // Remove diffuse component
     pixelForBakedSpecular.diffuseColor = 0;
 
-    if (derivedLight.NoL >= 0.0) 
+    if (derivedLight.NoL >= 0.0)
     {
         // derived light contribution from lightmap
         float diffuseAOForLightmap = min(material.ambientOcclusion * 0.8 + 0.3, 1.0);
@@ -1531,7 +1060,7 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
         color += max(0, surfaceShading(shading, pixelForBakedSpecular, derivedLight, diffuseAOForLightmap));
     };
     #if defined(_VRCLV) && !UNITY_SHOULD_SAMPLE_SH
-    if (volumeLight.NoL >= 0.0) 
+    if (volumeLight.NoL >= 0.0)
     {
         // derived light contribution from lightmap
         float diffuseAOForLightmap = min(material.ambientOcclusion * 0.8 + 0.3, 1.0);

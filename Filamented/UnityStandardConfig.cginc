@@ -23,7 +23,7 @@
 
 #define MULTI_BOUNCE_AMBIENT_OCCLUSION 1
 
-// Whether to use specular AA by default 
+// Whether to use specular AA by default
 // in shaders that don't specify USE_GEOMETRIC_SPECULAR_AA.
 #if !defined(USE_GEOMETRIC_SPECULAR_AA)
 #define USE_GEOMETRIC_SPECULAR_AA_DEFAULT
@@ -36,19 +36,19 @@
 #endif
 
 // Whether to sample all bands of SH in the fragment shader.
-// Otherwise, L2 SH for light probes is sampled in the vertex shader. 
+// Otherwise, L2 SH for light probes is sampled in the vertex shader.
 // When this is disabled, L2 SH will be calculated in the vertex shader and
 // added to the final light probe result. For base Unity, this is a good optimization.
 // However, Filamented adds newer techniques for sampling Unity's L1 SH which
-// produce a higher quality result, and adding the L2 contribution over them 
+// produce a higher quality result, and adding the L2 contribution over them
 // causes artifacts. In this case, it makes more sense to disable this optimization
-// and skip reading the L2 SH entirely. 
+// and skip reading the L2 SH entirely.
 // You can adjust the technique used to sample the light probes in FilamentLightIndirect.cginc.
 #ifndef UNITY_SAMPLE_FULL_SH_PER_PIXEL
 #define UNITY_SAMPLE_FULL_SH_PER_PIXEL 1
 #endif
 
-// Whether to read the _DFG texture for DFG instead of the approximate one. 
+// Whether to read the _DFG texture for DFG instead of the approximate one.
 // The shader must have a _DFG texture property, so don't enable this here.
 // For example, you can use this ShaderLab semantic to specify a DFG texture.
 // [NonModifiableTextureData][HideInInspector] _DFG("DFG", 2D) = "white" {}
@@ -59,17 +59,17 @@
 // Filament cross-compatibility defines
 
 #if (DIRECTIONAL || DIRECTIONAL_COOKIE)
-#define HAS_DIRECTIONAL_LIGHTING 
+#define HAS_DIRECTIONAL_LIGHTING
 #endif
 #if (POINT || SPOT || POINT_COOKIE)
-#define HAS_DYNAMIC_LIGHTING 
+#define HAS_DYNAMIC_LIGHTING
 #endif
 #if (SHADOWS_SCREEN || SHADOWS_SHADOWMASK || LIGHTMAP_SHADOW || DIRECTIONAL_COOKIE)
-#define HAS_SHADOWING 
+#define HAS_SHADOWING
 #endif
 
 #if _EMISSION
-#define MATERIAL_HAS_EMISSIVE 
+#define MATERIAL_HAS_EMISSIVE
 #endif
 #if defined(MATERIAL_HAS_NORMAL)
 #define _NORMALMAP 1
@@ -83,16 +83,16 @@
 #endif
 
 #if _ALPHAPREMULTIPLY_ON
-#define BLEND_MODE_TRANSPARENT 
+#define BLEND_MODE_TRANSPARENT
 #endif
 #if _ALPHABLEND_ON
-#define BLEND_MODE_FADE 
+#define BLEND_MODE_FADE
 // Workaround a bug where the blending premultiply step causes AO to apply
-// strange lighting. 
+// strange lighting.
 #undef MULTI_BOUNCE_AMBIENT_OCCLUSION
 #endif
 #if _ALPHATEST_ON
-#define BLEND_MODE_MASKED 
+#define BLEND_MODE_MASKED
 #endif
 
 #ifndef NEEDS_ALPHA_CHANNEL
@@ -102,10 +102,10 @@
 // By default, Standard assumes meshes have normals
 #define HAS_ATTRIBUTE_TANGENTS
 
-// Standard includes many defines for excluding specific types of texture maps, 
+// Standard includes many defines for excluding specific types of texture maps,
 // but _OcclusionMap is not one of them. However, this is defined in the individual
-// shader files to make it clearer. 
-//#define MATERIAL_HAS_AMBIENT_OCCLUSION 
+// shader files to make it clearer.
+//#define MATERIAL_HAS_AMBIENT_OCCLUSION
 
 // If USE_GEOMETRIC_SPECULAR_AA is set, don't use the default values
 #if defined(USE_GEOMETRIC_SPECULAR_AA)
@@ -130,7 +130,7 @@
 UNITY_DECLARE_TEX2D_FLOAT(_DFG);
 #endif
 
-// Todo: Bakery seems to recommend disabling RNM when normal maps are not active. 
+// Todo: Bakery seems to recommend disabling RNM when normal maps are not active.
 #if defined(MATERIAL_HAS_NORMAL)
 #if defined(_BAKERY_RNM) || defined(_BAKERY_SH)
 // Set when Bakery-specific lightmap textures need to be read.
@@ -141,18 +141,18 @@ UNITY_DECLARE_TEX2D_HALF(_RNM2);
 #endif
 #endif
 
-// For MonoSH, the extra textures aren't used. 
+// For MonoSH, the extra textures aren't used.
 #if defined(_BAKERY_MONOSH)
 #endif
 
-// For vertex lightmaps, 
+// For vertex lightmaps,
 #if defined(_BAKERY_VERTEXLM)
     #define USING_BAKERY_VERTEXLM
 
     // Colour is reserved by vertex LM.
     #ifdef HAS_ATTRIBUTE_COLOR
         #undef HAS_ATTRIBUTE_COLOR
-    #endif 
+    #endif
 
     // Required to know whether vertex mode is being used.
     float bakeryLightmapMode;
@@ -167,13 +167,13 @@ UNITY_DECLARE_TEX2D_HALF(_RNM2);
         #define USING_BAKERY_VERTEXLMDIR
     #endif
 
-    // ...And if they use SH. 
+    // ...And if they use SH.
     #if defined(_BAKERY_SH)
         #define USING_BAKERY_VERTEXLMSH
             // UV3  is reserved by vertex LM SH.
             #ifdef HAS_ATTRIBUTE_UV3
             #undef HAS_ATTRIBUTE_UV3
-        #endif 
+        #endif
     #endif
 #endif
 
