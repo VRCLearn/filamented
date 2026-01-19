@@ -992,6 +992,7 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     float3 ltc_Fr =  E * acc.specular;
 
     ltc_Fr *= singleBounceAO(ltc_specularAO) * pixel.energyCompensation;
+    specularAO = lerp(specularAO, ltc_specularAO, saturate(acc.specularIntensity));
 
     Fr = lerp(Fr, ltc_Fr, saturate(acc.specularIntensity));
 #endif
