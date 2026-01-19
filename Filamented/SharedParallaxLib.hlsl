@@ -73,4 +73,47 @@ float2 ParallaxRaymarchingDynamic(float3 viewDir, PerPixelHeightDisplacementPara
     return parallaxUVs;
 }
 
+
+float2 ParallaxRaymarchingDynamicOffset(float3 viewDir, PerPixelHeightDisplacementParam ppdParam, 
+    float strength, float lod)
+{
+    const float minLayers = 8.0;
+    const float maxLayers = 48.0;
+    float numLayers = lerp(maxLayers, minLayers, clamp(lod, 0, 1));
+
+    if (viewDir.z < 0.001) return 0;
+    
+    float heightScale = _Parallax; 
+    float refPlane = 0.5; 
+    
+    float layerDepth = 1.0 / numLayers;
+    float currLayerDepth = 0.0;
+    
+    float2 totalDelta = viewDir.xy * heightScale / viewDir.z;
+    float2 deltaUV = totalDelta / numLayers;
+    
+    // Shift the starting UVs forward so that the ray starts above the surface
+    float2 uvOffset = totalDelta * refPlane;
+    
+    float height = 1.0 - ComputePerPixelHeightDisplacement(uvOffset, 0, ppdParam);
+
+    for (int i = 0; i < numLayers; i++) {
+        if (height < currLayerDepth) break;
+        
+        currLayerDepth += layerDepth;
+        uvOffset -= deltaUV;
+        height = 1.0 - ComputePerPixelHeightDisplacement(uvOffset, 0, ppdParam);
+    }
+
+    float2 prevOffset = uvOffset + deltaUV;
+    float nextDepth = height - currLayerDepth;
+    float prevDepth = (1.0 - ComputePerPixelHeightDisplacement(prevOffset, 0, ppdParam)) - 
+                      (currLayerDepth - layerDepth);
+    
+    float weight = nextDepth / (nextDepth - prevDepth);
+    float2 parallaxUVs = lerp(uvOffset, prevOffset, weight);
+    
+    return parallaxUVs;
+}
+
 #endif // SERVICE_PARALLAX_INCLUDED

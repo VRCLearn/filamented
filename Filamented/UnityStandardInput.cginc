@@ -12,12 +12,16 @@
 //------------------------------------------------------------------------------
 
 // Parallax settings
-#define PARALLAX_NONE                 0
-#define PARALLAX_ONESTEP              1
-#define PARALLAX_RAYMARCH             2
-#define PARALLAX_RAYMARCH_DYNAMIC     3
+#define PARALLAX_NONE                        0
+// Has a range of -1 to 1
+#define PARALLAX_ONESTEP                     1
+// Has a range of -1 to 0
+#define PARALLAX_RAYMARCH                    2
+#define PARALLAX_RAYMARCH_DYNAMIC            3
+// Has a range of -1 to 1
+#define PARALLAX_RAYMARCH_DYNAMIC_OFFSET     4
 
-#define PARALLAX_OPERATOR             PARALLAX_RAYMARCH_DYNAMIC
+#define PARALLAX_OPERATOR             PARALLAX_RAYMARCH_DYNAMIC_OFFSET
 
 //---------------------------------------
 // Directional lightmaps & Parallax require tangent space too
@@ -359,6 +363,11 @@ struct VertexInput
         #if (PARALLAX_OPERATOR == PARALLAX_RAYMARCH_DYNAMIC)
             PerPixelHeightDisplacementParam ppd = InitPerPixelHeightDisplacementParam(texcoords.xy);
             float2 offset = ParallaxRaymarchingDynamic(viewDir, ppd, _Parallax, lod);
+            return float4(texcoords.xy + offset, texcoords.zw + offset);
+        #endif
+        #if (PARALLAX_OPERATOR == PARALLAX_RAYMARCH_DYNAMIC_OFFSET)
+            PerPixelHeightDisplacementParam ppd = InitPerPixelHeightDisplacementParam(texcoords.xy);
+            float2 offset = ParallaxRaymarchingDynamicOffset(viewDir, ppd, _Parallax, lod);
             return float4(texcoords.xy + offset, texcoords.zw + offset);
         #endif
     #endif
