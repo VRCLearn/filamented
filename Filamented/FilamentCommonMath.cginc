@@ -31,8 +31,8 @@
  *
  * @public-api
  */
-float pow5(float x) {
-    float x2 = x * x;
+half pow5(half x) {
+    half x2 = x * x;
     return x2 * x2 * x;
 }
 
@@ -41,7 +41,7 @@ float pow5(float x) {
  *
  * @public-api
  */
-float sq(float x) {
+half sq(half x) {
     return x * x;
 }
 
@@ -54,19 +54,19 @@ float sq(float x) {
  *
  * @public-api
  */
-float max3(const float3 v) {
+half max3(const half3 v) {
     return max(v.x, max(v.y, v.z));
 }
 
-float vmax(const float2 v) {
+half vmax(const half2 v) {
     return max(v.x, v.y);
 }
 
-float vmax(const float3 v) {
+half vmax(const half3 v) {
     return max(v.x, max(v.y, v.z));
 }
 
-float vmax(const float4 v) {
+half vmax(const half4 v) {
     return max(max(v.x, v.y), max(v.y, v.z));
 }
 
@@ -75,19 +75,19 @@ float vmax(const float4 v) {
  *
  * @public-api
  */
-float min3(const float3 v) {
+half min3(const half3 v) {
     return min(v.x, min(v.y, v.z));
 }
 
-float vmin(const float2 v) {
+half vmin(const half2 v) {
     return min(v.x, v.y);
 }
 
-float vmin(const float3 v) {
+half vmin(const half3 v) {
     return min(v.x, min(v.y, v.z));
 }
 
-float vmin(const float4 v) {
+half vmin(const half4 v) {
     return min(min(v.x, v.y), min(v.y, v.z));
 }
 
@@ -99,11 +99,11 @@ float vmin(const float4 v) {
  * Approximates acos(x) with a max absolute error of 9.0x10^-3.
  * Valid in the range -1..1.
  */
-float acosFast(float x) {
+half acosFast(half x) {
     // Lagarde 2014, "Inverse trigonometric functions GPU optimization for AMD GCN architecture"
     // This is the approximation of degree 1, with a max absolute error of 9.0x10^-3
-    float y = abs(x);
-    float p = -0.1565827 * y + 1.570796;
+    half y = abs(x);
+    half p = -0.1565827 * y + 1.570796;
     p *= sqrt(1.0 - y);
     return x >= 0.0 ? p : PI - p;
 }
@@ -112,8 +112,8 @@ float acosFast(float x) {
  * Approximates acos(x) with a max absolute error of 9.0x10^-3.
  * Valid only in the range 0..1.
  */
-float acosFastPositive(float x) {
-    float p = -0.1565827 * x + 1.570796;
+half acosFastPositive(half x) {
+    half p = -0.1565827 * x + 1.570796;
     return p * sqrt(1.0 - x);
 }
 #endif // FILAMENT_COMMON_MATH

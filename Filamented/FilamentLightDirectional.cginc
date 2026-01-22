@@ -10,18 +10,18 @@
 //#define SUN_AS_AREA_LIGHT
 #endif
 
-float3 sampleSunAreaLight(const float3 lightDirection, const ShadingParams shading) {
+half3 sampleSunAreaLight(const half3 lightDirection, const ShadingParams shading) {
     // Replaced frameUniforms.sun
 #if defined(SUN_AS_AREA_LIGHT)
     // cos(sunAngle), sin(sunAngle), 1/(sunAngle*HALO_SIZE-sunAngle), HALO_EXP
-    static const float sunAngle = 0.00951f;
-    static const float sunHaloSize = 10.0f;
-    static const float sunHaloFalloff = 80.0f;
-    static const float4 sunParameters = float4(cos(sunAngle), sin(sunAngle), 1/(sunAngle*sunHaloSize-sunAngle), sunHaloFalloff);
+    static const half sunAngle = 0.00951f;
+    static const half sunHaloSize = 10.0f;
+    static const half sunHaloFalloff = 80.0f;
+    static const half4 sunParameters = half4(cos(sunAngle), sin(sunAngle), 1/(sunAngle*sunHaloSize-sunAngle), sunHaloFalloff);
     if (sunParameters.w >= 0.0) {
         // simulate sun as disc area light
-        float LoR = dot(lightDirection, shading.reflected);
-        float d = sunParameters.x;
+        half LoR = dot(lightDirection, shading.reflected);
+        half d = sunParameters.x;
         float3 s = shading.reflected - LoR * lightDirection;
         return LoR < d ?
                 normalize(lightDirection * d + normalize(s) * sunParameters.y) : shading.reflected;
@@ -30,12 +30,12 @@ float3 sampleSunAreaLight(const float3 lightDirection, const ShadingParams shadi
     return lightDirection;
 }
 
-float4 UnityLight_ColorIntensitySeperated() {
-    return float4(_LightColor0.xyz, 1.0);
+half4 UnityLight_ColorIntensitySeperated() {
+    return half4(_LightColor0.xyz, 1.0);
 
     if (_LightColor0.w <= 0) return 0.0;
     _LightColor0 += 0.000001;
-    return float4(_LightColor0.xyz / _LightColor0.w, _LightColor0.w);
+    return half4(_LightColor0.xyz / _LightColor0.w, _LightColor0.w);
 }
 
 Light getDirectionalLight(ShadingParams shading) {
@@ -48,17 +48,17 @@ Light getDirectionalLight(ShadingParams shading) {
     return light;
 }
 
-// Much of this function has changed from the original because we still use 
+// Much of this function has changed from the original because we still use
 // Unity's BIRP shadow handling. Sorry!
 void evaluateDirectionalLight(const ShadingParams shading, const MaterialInputs material,
-        const PixelParams pixel, inout float3 color) {
+        const PixelParams pixel, inout half3 color) {
 
     Light light = getDirectionalLight(shading);
 
-    float visibility = 1.0;
+    half visibility = 1.0;
 #if defined(HAS_SHADOWING)
     if (light.NoL > 0.0) {
-        float ssContactShadowOcclusion = 0.0;
+        half ssContactShadowOcclusion = 0.0;
 
         // hasDirectionalShadows && cascadeHasVisibleShadows
         if (1) {

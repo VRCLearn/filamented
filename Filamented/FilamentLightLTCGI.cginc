@@ -8,9 +8,9 @@
 #include "Packages/at.pimaker.ltcgi/Shaders/LTCGI_structs.cginc"
 
 struct accumulator_struct {
-    float3 diffuse;
-    float3 specular;
-    float3 specularIntensity;
+    half3 diffuse;
+    half3 specular;
+    half3 specularIntensity;
 };
 void callback_diffuse(inout accumulator_struct acc, in ltcgi_output output);
 void callback_specular(inout accumulator_struct acc, in ltcgi_output output);
@@ -36,7 +36,7 @@ void callback_specular(inout accumulator_struct acc, in ltcgi_output output) {
 
 // This is a small function to abstract the calls to the LTCGI functions.
 
-void evaluateLTCGI(const ShadingParams shading, const PixelParams pixel, inout float3 color) {
+void evaluateLTCGI(const ShadingParams shading, const PixelParams pixel, inout half3 color) {
 #if defined(_LTCGI)
     accumulator_struct acc = (accumulator_struct)0;
 

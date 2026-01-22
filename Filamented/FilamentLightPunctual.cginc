@@ -6,34 +6,34 @@
 // Punctual lights evaluation
 //------------------------------------------------------------------------------
 
-// This is based off light_directional, not light_punctual, because of Unity's 
+// This is based off light_directional, not light_punctual, because of Unity's
 // light model.
 
-float4 UnityLight_ColorIntensitySeperated_Punctual() {
-    return float4(_LightColor0.xyz, 1.0);
+half4 UnityLight_ColorIntensitySeperated_Punctual() {
+    return half4(_LightColor0.xyz, 1.0);
 
     if (_LightColor0.w <= 0) return 0.0;
-    return float4(_LightColor0.xyz / _LightColor0.w, _LightColor0.w);
+    return half4(_LightColor0.xyz / _LightColor0.w, _LightColor0.w);
 }
 
-float getSquareFalloffAttenuation(float distanceSquare, float falloff) {
-    float factor = distanceSquare * falloff;
-    float smoothFactor = saturate(1.0 - factor * factor);
+half getSquareFalloffAttenuation(half distanceSquare, half falloff) {
+    half factor = distanceSquare * falloff;
+    half smoothFactor = saturate(1.0 - factor * factor);
     // We would normally divide by the square distance here
     // but we do it at the call site
     return smoothFactor * smoothFactor;
 }
 
-float getDistanceAttenuation(const float3 posToLight, float falloff) {
-    float distanceSquare = dot(posToLight, posToLight);
-    float attenuation = getSquareFalloffAttenuation(distanceSquare, falloff);
+half getDistanceAttenuation(const half3 posToLight, half falloff) {
+    half distanceSquare = dot(posToLight, posToLight);
+    half attenuation = getSquareFalloffAttenuation(distanceSquare, falloff);
     // Assume a punctual light occupies a volume of 1cm to avoid a division by 0
     return attenuation * 1.0 / max(distanceSquare, 1e-4);
 }
 
-float getAngleAttenuation(const float3 lightDir, const float3 l, const float2 scaleOffset) {
-    float cd = dot(lightDir, l);
-    float attenuation = saturate(cd * scaleOffset.x + scaleOffset.y);
+half getAngleAttenuation(const half3 lightDir, const half3 l, const half2 scaleOffset) {
+    half cd = dot(lightDir, l);
+    half attenuation = saturate(cd * scaleOffset.x + scaleOffset.y);
     return attenuation * attenuation;
 }
 
@@ -52,13 +52,13 @@ Light getLight(ShadingParams shading) {
     return light;
 }
 
-// Much of this function has changed from the original because we still use 
+// Much of this function has changed from the original because we still use
 // Unity's BIRP shadow handling. Sorry!
-void evaluatePunctualLights(const ShadingParams shading, const PixelParams pixel, inout float3 color) {
+void evaluatePunctualLights(const ShadingParams shading, const PixelParams pixel, inout half3 color) {
 
     Light light = getLight(shading);
 
-    float visibility = 1.0;
+    half visibility = 1.0;
 #if defined(HAS_SHADOWING)
     if (light.NoL > 0.0) {
         float ssContactShadowOcclusion = 0.0;

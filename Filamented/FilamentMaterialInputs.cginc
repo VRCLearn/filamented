@@ -13,81 +13,81 @@
 #endif
 
 struct MaterialInputs {
-    float4  baseColor;
+    half4  baseColor;
 #if !defined(SHADING_MODEL_UNLIT)
 #if !defined(SHADING_MODEL_SPECULAR_GLOSSINESS)
-    float roughness;
+    half roughness;
 #endif
 #if !defined(SHADING_MODEL_CLOTH) && !defined(SHADING_MODEL_SPECULAR_GLOSSINESS)
-    float metallic;
-    float reflectance;
+    half metallic;
+    half reflectance;
 #endif
-    float ambientOcclusion;
+    half ambientOcclusion;
 #endif
-    float4  emissive;
+    half4  emissive;
 
 #if !defined(SHADING_MODEL_CLOTH) && !defined(SHADING_MODEL_SUBSURFACE) && !defined(SHADING_MODEL_UNLIT)
-    float3 sheenColor;
-    float sheenRoughness;
+    half3 sheenColor;
+    half sheenRoughness;
 #endif
 
-    float clearCoat;
-    float clearCoatRoughness;
+    half clearCoat;
+    half clearCoatRoughness;
 
-    float anisotropy;
-    float3  anisotropyDirection;
+    half anisotropy;
+    half3  anisotropyDirection;
 
 #if defined(SHADING_MODEL_SUBSURFACE) || defined(HAS_REFRACTION)
-    float thickness;
+    half thickness;
 #endif
 #if defined(SHADING_MODEL_SUBSURFACE)
-    float subsurfacePower;
-    float3  subsurfaceColor;
+    half subsurfacePower;
+    half3  subsurfaceColor;
 #endif
 
 #if defined(SHADING_MODEL_CLOTH)
-    float3  sheenColor;
+    half3  sheenColor;
 #if defined(MATERIAL_HAS_SUBSURFACE_COLOR)
-    float3  subsurfaceColor;
+    half3  subsurfaceColor;
 #endif
 #endif
 
 #if defined(SHADING_MODEL_SPECULAR_GLOSSINESS)
-    float3  specularColor;
-    float glossiness;
+    half3  specularColor;
+    half glossiness;
 #endif
 
 #if defined(MATERIAL_HAS_NORMAL)
-    float3  normal;
+    half3  normal;
 #endif
 #if defined(MATERIAL_HAS_BENT_NORMAL)
-    float3  bentNormal;
+    half3  bentNormal;
 #endif
 #if defined(MATERIAL_HAS_CLEAR_COAT) && defined(MATERIAL_HAS_CLEAR_COAT_NORMAL)
-    float3  clearCoatNormal;
+    half3  clearCoatNormal;
 #endif
 
 #if defined(MATERIAL_HAS_POST_LIGHTING_COLOR)
-    float4  postLightingColor;
+    half4  postLightingColor;
 #endif
 
 #if !defined(SHADING_MODEL_CLOTH) && !defined(SHADING_MODEL_SUBSURFACE) && !defined(SHADING_MODEL_UNLIT)
 #if defined(HAS_REFRACTION)
 #if defined(MATERIAL_HAS_ABSORPTION)
-    float3 absorption;
+    half3 absorption;
 #endif
 #if defined(MATERIAL_HAS_TRANSMISSION)
-    float transmission;
+    half transmission;
 #endif
 #if defined(MATERIAL_HAS_IOR)
-    float ior;
+    half ior;
 #endif
 #if defined(MATERIAL_HAS_MICRO_THICKNESS) && (REFRACTION_TYPE == REFRACTION_TYPE_THIN)
-    float microThickness;
+    half microThickness;
 #endif
 #elif !defined(SHADING_MODEL_SPECULAR_GLOSSINESS)
 #if defined(MATERIAL_HAS_IOR)
-    float ior;
+    half ior;
 #endif
 #endif
 #endif
@@ -107,11 +107,11 @@ void initMaterial(out MaterialInputs material) {
 #endif
     material.ambientOcclusion = 1.0;
 #endif
-    material.emissive = float4(float3(0.0.xxx), 1.0);
+    material.emissive = half4(half3(0.0.xxx), 1.0);
 
 #if !defined(SHADING_MODEL_CLOTH) && !defined(SHADING_MODEL_SUBSURFACE) && !defined(SHADING_MODEL_UNLIT)
 #if defined(MATERIAL_HAS_SHEEN_COLOR)
-    material.sheenColor = float3(0.0.xxx);
+    material.sheenColor = half3(0.0.xxx);
     material.sheenRoughness = 0.0;
 #endif
 #endif
@@ -123,7 +123,7 @@ void initMaterial(out MaterialInputs material) {
 
 #if defined(MATERIAL_HAS_ANISOTROPY)
     material.anisotropy = 0.0;
-    material.anisotropyDirection = float3(1.0, 0.0, 0.0);
+    material.anisotropyDirection = half3(1.0, 0.0, 0.0);
 #endif
 
 #if defined(SHADING_MODEL_SUBSURFACE) || defined(HAS_REFRACTION)
@@ -131,39 +131,39 @@ void initMaterial(out MaterialInputs material) {
 #endif
 #if defined(SHADING_MODEL_SUBSURFACE)
     material.subsurfacePower = 12.234;
-    material.subsurfaceColor = float3(1.0.xxx);
+    material.subsurfaceColor = half3(1.0.xxx);
 #endif
 
 #if defined(SHADING_MODEL_CLOTH)
     material.sheenColor = sqrt(material.baseColor.rgb);
 #if defined(MATERIAL_HAS_SUBSURFACE_COLOR)
-    material.subsurfaceColor = float3(0.0.xxx);
+    material.subsurfaceColor = half3(0.0.xxx);
 #endif
 #endif
 
 #if defined(SHADING_MODEL_SPECULAR_GLOSSINESS)
     material.glossiness = 0.0;
-    material.specularColor = float3(0.0.xxx);
+    material.specularColor = half3(0.0.xxx);
 #endif
 
 #if defined(MATERIAL_HAS_NORMAL)
-    material.normal = float3(0.0, 0.0, 1.0);
+    material.normal = half3(0.0, 0.0, 1.0);
 #endif
 #if defined(MATERIAL_HAS_BENT_NORMAL)
-    material.bentNormal = float3(0.0, 0.0, 1.0);
+    material.bentNormal = half3(0.0, 0.0, 1.0);
 #endif
 #if defined(MATERIAL_HAS_CLEAR_COAT) && defined(MATERIAL_HAS_CLEAR_COAT_NORMAL)
-    material.clearCoatNormal = float3(0.0, 0.0, 1.0);
+    material.clearCoatNormal = half3(0.0, 0.0, 1.0);
 #endif
 
 #if defined(MATERIAL_HAS_POST_LIGHTING_COLOR)
-    material.postLightingColor = float4(0.0.xxx);
+    material.postLightingColor = half4(0.0.xxx);
 #endif
 
 #if !defined(SHADING_MODEL_CLOTH) && !defined(SHADING_MODEL_SUBSURFACE) && !defined(SHADING_MODEL_UNLIT)
 #if defined(HAS_REFRACTION)
 #if defined(MATERIAL_HAS_ABSORPTION)
-    material.absorption = float3(0.0.xxx);
+    material.absorption = half3(0.0.xxx);
 #endif
 #if defined(MATERIAL_HAS_TRANSMISSION)
     material.transmission = 1.0;
@@ -185,20 +185,20 @@ void initMaterial(out MaterialInputs material) {
 #if defined(MATERIAL_HAS_CUSTOM_SURFACE_SHADING)
 /** @public-api */
 struct LightData {
-    float4  colorIntensity;
-    float3  l;
-    float NdotL;
-    float3  worldPosition;
-    float attenuation;
-    float visibility;
+    half4  colorIntensity;
+    half3  l;
+    half NdotL;
+    half3  worldPosition;
+    half attenuation;
+    half visibility;
 };
 
 /** @public-api */
 struct ShadingData {
-    float3  diffuseColor;
-    float perceptualRoughness;
-    float3  f0;
-    float roughness;
+    half3  diffuseColor;
+    half perceptualRoughness;
+    half3  f0;
+    half roughness;
 };
 #endif
 

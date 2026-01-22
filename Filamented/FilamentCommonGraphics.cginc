@@ -10,8 +10,8 @@
  *
  * @public-api
  */
-float luminance(const float3 linearCol) {
-    return dot(linearCol, float3(0.2126, 0.7152, 0.0722));
+half luminance(const half3 linearCol) {
+    return dot(linearCol, half3(0.2126, 0.7152, 0.0722));
 }
 
 /**
@@ -19,11 +19,11 @@ float luminance(const float3 linearCol) {
  * This function exists to force high precision on the two parameters
  * ...Which isn't applicable yet.
  */
-float computePreExposedIntensity(const float intensity, const float exposure) {
+half computePreExposedIntensity(const float intensity, const float exposure) {
     return intensity * exposure;
 }
 
-void unpremultiply(inout float4 color) {
+void unpremultiply(inout half4 color) {
     color.rgb /= max(color.a, FLT_EPS);
 }
 
@@ -32,15 +32,15 @@ void unpremultiply(inout float4 color) {
  *
  * @public-api
  */
-float3 ycbcrToRgb(float luminance, float2 cbcr) {
+half3 ycbcrToRgb(half luminance, half2 cbcr) {
     // Taken from https://developer.apple.com/documentation/arkit/arframe/2867984-capturedimage
-    const float4x4 ycbcrToRgbTransform = {
+    const half4x4 ycbcrToRgbTransform = {
          1.0000,  1.0000,  1.0000,  0.0000,
          0.0000, -0.3441,  1.7720,  0.0000,
          1.4020, -0.7141,  0.0000,  0.0000,
         -0.7010,  0.5291, -0.8860,  1.0000
     };
-    return mul(ycbcrToRgbTransform, float4(luminance, cbcr, 1.0)).rgb;
+    return mul(ycbcrToRgbTransform, half4(luminance, cbcr, 1.0)).rgb;
 }
 
 //------------------------------------------------------------------------------
@@ -50,7 +50,7 @@ float3 ycbcrToRgb(float luminance, float2 cbcr) {
 /*
  * The input must be in the [0, 1] range.
  */
-float3 Inverse_Tonemap_Unreal(const float3 x) {
+half3 Inverse_Tonemap_Unreal(const half3 x) {
     return (x * -0.155) / (x - 1.019);
 }
 
@@ -61,7 +61,7 @@ float3 Inverse_Tonemap_Unreal(const float3 x) {
  *
  * @public-api
  */
-float3 inverseTonemapSRGB(float3 color) {
+half3 inverseTonemapSRGB(half3 color) {
     // sRGB input
     color = clamp(color, 0.0, 1.0);
     return Inverse_Tonemap_Unreal(color);
@@ -74,7 +74,7 @@ float3 inverseTonemapSRGB(float3 color) {
  *
  * @public-api
  */
-float3 inverseTonemap(float3 linearCol) {
+half3 inverseTonemap(half3 linearCol) {
     // Linear input
     linearCol = clamp(linearCol, 0.0, 1.0);
     return Inverse_Tonemap_Unreal(pow(linearCol, 1.0 / 2.2));
@@ -87,7 +87,7 @@ float3 inverseTonemap(float3 linearCol) {
 /**
  * Decodes the specified RGBM value to linear HDR RGB.
  */
-float3 decodeRGBM(float4 c) {
+half3 decodeRGBM(half4 c) {
     c.rgb *= (c.a * 16.0);
     return c.rgb * c.rgb;
 }
@@ -96,24 +96,24 @@ float3 decodeRGBM(float4 c) {
 // Common debug
 //------------------------------------------------------------------------------
 
-float3 heatmap(float v) {
-    float3 r = v * 2.1 - float3(1.8, 1.14, 0.3);
+half3 heatmap(half v) {
+    half3 r = v * 2.1 - half3(1.8, 1.14, 0.3);
     return 1.0 - r * r;
 }
 
-float3 uintToColorDebug(uint v) {
+half3 uintToColorDebug(uint v) {
     if (v == 0u) {
-        return float3(0.0, 1.0, 0.0);     // green
+        return half3(0.0, 1.0, 0.0);     // green
     } else if (v == 1u) {
-        return float3(0.0, 0.0, 1.0);     // blue
+        return half3(0.0, 0.0, 1.0);     // blue
     } else if (v == 2u) {
-        return float3(1.0, 1.0, 0.0);     // yellow
+        return half3(1.0, 1.0, 0.0);     // yellow
     } else if (v == 3u) {
-        return float3(1.0, 0.0, 0.0);     // red
+        return half3(1.0, 0.0, 0.0);     // red
     } else if (v == 4u) {
-        return float3(1.0, 0.0, 1.0);     // purple
+        return half3(1.0, 0.0, 1.0);     // purple
     } else if (v == 5u) {
-        return float3(0.0, 1.0, 1.0);     // cyan
+        return half3(0.0, 1.0, 1.0);     // cyan
     }
 }
 #endif // FILAMENT_COMMON_GRAPHICS

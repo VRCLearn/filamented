@@ -17,6 +17,17 @@
 #define TARGET_MOBILE
 #endif
 
+// Forces mobile quality on PC for testing.
+// #define FILAMENTED_USE_16BIT_ON_PC
+
+#ifdef FILAMENTED_USE_16BIT_ON_PC
+#define TARGET_MOBILE
+#define half min16float
+#define half2 min16float2
+#define half3 min16float3
+#define half4 min16float4
+#endif
+
 #if !defined(SPECULAR_AMBIENT_OCCLUSION)
 #define SPECULAR_AMBIENT_OCCLUSION SPECULAR_AO_BENT_NORMALS
 #endif

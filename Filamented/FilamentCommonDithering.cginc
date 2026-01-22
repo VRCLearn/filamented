@@ -16,7 +16,7 @@
 //------------------------------------------------------------------------------
 
 // n must be normalized in [0..1] (e.g. texture coordinates)
-float triangleNoise(float2 n) {
+half triangleNoise(float2 n) {
     // triangle noise, in [-1.0..1.0[ range
     n  = fract(n * float2(5.3987, 5.4421));
     n += dot(n.yx, n.xy + float2(21.5351, 14.3137));
@@ -27,7 +27,7 @@ float triangleNoise(float2 n) {
 }
 
 // n must not be normalize (e.g. window coordinates)
-float interleavedGradientNoise(float2 n) {
+half interleavedGradientNoise(float2 n) {
     return fract(52.982919 * fract(dot(float2(0.06711, 0.00584), n)));
 }
 
@@ -35,7 +35,7 @@ float interleavedGradientNoise(float2 n) {
 // Dithering
 //------------------------------------------------------------------------------
 
-float4 Dither_InterleavedGradientNoise(float4 rgba, const float temporalNoise01) {
+half4 Dither_InterleavedGradientNoise(half4 rgba, const float temporalNoise01) {
     // Jimenez 2014, "Next Generation Post-Processing in Call of Duty"
     float2 uv = gl_FragCoord.xy + temporalNoise01;
 
@@ -48,7 +48,7 @@ float4 Dither_InterleavedGradientNoise(float4 rgba, const float temporalNoise01)
     return rgba + float4(noise / 255.0);
 }
 
-float4 Dither_TriangleNoise(float4 rgba, const float temporalNoise01) {
+half4 Dither_TriangleNoise(half4 rgba, const float temporalNoise01) {
     // Gjøl 2016, "Banding in Games: A Noisy Rant"
     float2 uv = gl_FragCoord.xy * frameUniforms.resolution.zw;
     uv += float2(0.07 * temporalNoise01);
@@ -61,23 +61,23 @@ float4 Dither_TriangleNoise(float4 rgba, const float temporalNoise01) {
     return rgba + float4(noise / 255.0);
 }
 
-float4 Dither_Vlachos(float4 rgba, const float temporalNoise01) {
+half4 Dither_Vlachos(half4 rgba, const float temporalNoise01) {
     // Vlachos 2016, "Advanced VR Rendering"
     float noise = dot(float2(171.0, 231.0), gl_FragCoord.xy + temporalNoise01);
-    float3 noiseRGB = fract(float3(noise) / float3(103.0, 71.0, 97.0));
+    half3 noiseRGB = fract(float3(noise) / float3(103.0, 71.0, 97.0));
 
     // remap from [0..1[ to [-0.5..0.5[
     noiseRGB -= 0.5;
 
-    return float4(rgba.rgb + (noiseRGB / 255.0), rgba.a);
+    return half4(rgba.rgb + (noiseRGB / 255.0), rgba.a);
 }
 
-float4 Dither_TriangleNoiseRGB(float4 rgba, const float temporalNoise01) {
+half4 Dither_TriangleNoiseRGB(half4 rgba, const float temporalNoise01) {
     // Gjøl 2016, "Banding in Games: A Noisy Rant"
     float2 uv = gl_FragCoord.xy * frameUniforms.resolution.zw;
     uv += float2(0.07 * temporalNoise01);
 
-    float3 noiseRGB = float3(
+    half3 noiseRGB = float3(
             triangleNoise(uv),
             triangleNoise(uv + 0.1337),
             triangleNoise(uv + 0.3141));
@@ -97,7 +97,7 @@ float4 Dither_TriangleNoiseRGB(float4 rgba, const float temporalNoise01) {
  * This dithering function assumes we are dithering to an 8-bit target.
  * This function dithers the alpha channel assuming premultiplied output
  */
-float4 dither(float4 rgba, const float temporalNoise01) {
+half4 dither(half4 rgba, const float temporalNoise01) {
 #if DITHERING_OPERATOR == DITHERING_NONE
     return rgba;
 #elif DITHERING_OPERATOR == DITHERING_INTERLEAVED_NOISE

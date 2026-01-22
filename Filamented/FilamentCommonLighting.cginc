@@ -2,69 +2,69 @@
 #define FILAMENT_COMMON_LIGHTING
 
 struct Light {
-    float4 colorIntensity;  // rgb, pre-exposed intensity
+    half4 colorIntensity;  // rgb, pre-exposed intensity
     float3 l;
-    float attenuation;
-    float NoL;
+    half4 attenuation;
+    half NoL;
     float3 worldPosition;
 };
 
 struct PixelParams {
-    float3  diffuseColor;
-    float perceptualRoughness;
-    float perceptualRoughnessUnclamped;
-    float3  f0;
-    float roughness;
-    float3  dfg;
-    float3  energyCompensation;
+    half3  diffuseColor;
+    half perceptualRoughness;
+    half perceptualRoughnessUnclamped;
+    half3  f0;
+    half roughness;
+    half3  dfg;
+    half3  energyCompensation;
 
 #if defined(MATERIAL_HAS_CLEAR_COAT)
-    float clearCoat;
-    float clearCoatPerceptualRoughness;
-    float clearCoatRoughness;
+    half clearCoat;
+    half clearCoatPerceptualRoughness;
+    half clearCoatRoughness;
 #endif
 
 #if defined(MATERIAL_HAS_SHEEN_COLOR)
-    float3  sheenColor;
+    half3  sheenColor;
 #if !defined(SHADING_MODEL_CLOTH)
-    float sheenRoughness;
-    float sheenPerceptualRoughness;
-    float sheenScaling;
-    float sheenDFG;
+    half sheenRoughness;
+    half sheenPerceptualRoughness;
+    half sheenScaling;
+    half sheenDFG;
 #endif
 #endif
 
 #if defined(MATERIAL_HAS_ANISOTROPY)
-    float3  anisotropicT;
-    float3  anisotropicB;
-    float anisotropy;
+    half3  anisotropicT;
+    half3  anisotropicB;
+    half anisotropy;
 #endif
 
 #if defined(SHADING_MODEL_SUBSURFACE) || defined(HAS_REFRACTION)
-    float thickness;
+    half thickness;
 #endif
 #if defined(SHADING_MODEL_SUBSURFACE)
-    float3  subsurfaceColor;
-    float subsurfacePower;
+    half3  subsurfaceColor;
+    half subsurfacePower;
 #endif
 
 #if defined(SHADING_MODEL_CLOTH) && defined(MATERIAL_HAS_SUBSURFACE_COLOR)
-    float3  subsurfaceColor;
+    half3  subsurfaceColor;
 #endif
 
 #if defined(HAS_REFRACTION)
-    float etaRI;
-    float etaIR;
-    float transmission;
-    float uThickness;
-    float3 absorption;
+    half etaRI;
+    half etaIR;
+    half transmission;
+    half uThickness;
+    half3 absorption;
 #endif
 };
 
-float computeMicroShadowing(float NoL, float visibility) {
+half computeMicroShadowing(half NoL, half visibility) {
     // Chan 2018, "Material Advances in Call of Duty: WWII"
-    float aperture = rsqrt(1.0 - visibility);
-    float microShadow = saturate(NoL * aperture);
+    half aperture = rsqrt(1.0 - visibility);
+    half microShadow = saturate(NoL * aperture);
     return microShadow * microShadow;
 };
 

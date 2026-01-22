@@ -63,10 +63,10 @@
 // IBL prefiltered DFG term implementations
 //------------------------------------------------------------------------------
 
-float3 PrefilteredDFG_LUT(float lod, float NoV) {
+half3 PrefilteredDFG_LUT(half lod, half NoV) {
     #if defined(USE_DFG_LUT)
     // coord = sqrt(linear_roughness), which is the mapping used by cmgen.
-    return UNITY_SAMPLE_TEX2D(_DFG, float2(NoV, lod));
+    return UNITY_SAMPLE_TEX2D(_DFG, half2(NoV, lod));
     #else
     // Texture not available
     return float3(1.0, 0.0, 0.0);
@@ -77,24 +77,24 @@ float3 PrefilteredDFG_LUT(float lod, float NoV) {
 // IBL environment BRDF dispatch
 //------------------------------------------------------------------------------
 
-float3 prefilteredDFG(float perceptualRoughness, float NoV) {
+half3 prefilteredDFG(half perceptualRoughness, half NoV) {
     #if defined(USE_DFG_LUT)
         // PrefilteredDFG_LUT() takes a LOD, which is sqrt(roughness) = perceptualRoughness
         return PrefilteredDFG_LUT(perceptualRoughness, NoV);
     #else
         #if 0
         // Karis' approximation based on Lazarov's
-        const float4 c0 = float4(-1.0, -0.0275, -0.572,  0.022);
-        const float4 c1 = float4( 1.0,  0.0425,  1.040, -0.040);
-        float4 r = perceptualRoughness * c0 + c1;
-        float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
-        return (float3(float2(-1.04, 1.04) * a004 + r.zw, 0.0));
+        const half4 c0 = half4(-1.0, -0.0275, -0.572,  0.022);
+        const half4 c1 = half4( 1.0,  0.0425,  1.040, -0.040);
+        half4 r = perceptualRoughness * c0 + c1;
+        half a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+        return (half3(half2(-1.04, 1.04) * a004 + r.zw, 0.0));
         #endif
         #if 0
         // Zioma's approximation based on Karis
-        return float3(float2(1.0, pow(1.0 - max(perceptualRoughness, NoV), 3.0)), 0.0);
+        return half3(half2(1.0, pow(1.0 - max(perceptualRoughness, NoV), 3.0)), 0.0);
         #endif
-        return float3(0, 1, 1);
+        return half3(0, 1, 1);
     #endif
 }
 
@@ -102,17 +102,17 @@ float3 prefilteredDFG(float perceptualRoughness, float NoV) {
 // IBL irradiance implementations
 //------------------------------------------------------------------------------
 
-float3 Irradiance_SphericalHarmonics(const float3 n, const bool useL2) {
+half3 Irradiance_SphericalHarmonics(const half3 n, const bool useL2) {
     // Uses Unity's functions for reading SH.
-    float3 finalSH = float3(0,0,0);
+    half3 finalSH = half3(0,0,0);
 
     #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_DEFAULT)
         finalSH = SHEvalLinearL0L1(half4(n, 1.0));
     #endif
 
     #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_GEOMETRICS)
-        float3 L0 = float3(unity_SHAr.w, unity_SHAg.w, unity_SHAb.w);
-        float3 L0L2 = float3(unity_SHBr.z, unity_SHBg.z, unity_SHBb.z) / 3.0;
+        half3 L0 = half3(unity_SHAr.w, unity_SHAg.w, unity_SHAb.w);
+        half3 L0L2 = half3(unity_SHBr.z, unity_SHBg.z, unity_SHBb.z) / 3.0;
         L0 = (useL2) ? L0+L0L2 : L0-L0L2;
         finalSH.r = shEvaluateDiffuseL1Geomerics_local(L0.r, unity_SHAr.xyz, n);
         finalSH.g = shEvaluateDiffuseL1Geomerics_local(L0.g, unity_SHAg.xyz, n);
@@ -133,7 +133,7 @@ float3 Irradiance_SphericalHarmonics(const float3 n, const bool useL2) {
     return finalSH;
 }
 
-float3 Irradiance_SphericalHarmonics(const float3 n) {
+half3 Irradiance_SphericalHarmonics(const float3 n) {
     // Assume L2 is wanted
     return Irradiance_SphericalHarmonics(n, true);
 }
@@ -224,11 +224,11 @@ half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light d
     #endif
 
     #if defined(LIGHTMAP_SPECULAR)
-    float3 nL1x; float3 nL1y; float3 nL1z;
-    nL1x = float3(L1r[0], L1g[0], L1b[0]);
-    nL1y = float3(L1r[1], L1g[1], L1b[1]);
-    nL1z = float3(L1r[2], L1g[2], L1b[2]);
-    float3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
+    half3 nL1x; half3 nL1y; half3 nL1z;
+    nL1x = half3(L1r[0], L1g[0], L1b[0]);
+    nL1y = half3(L1r[1], L1g[1], L1b[1]);
+    nL1z = half3(L1r[2], L1g[2], L1b[2]);
+    half3 dominantDir = half3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
 
     // Determine the light's direction and directionality
     half L0_lum = max(FLT_EPS, luminance(L0));
@@ -236,10 +236,10 @@ half3 Irradiance_SampleVRCLightVolume(half3 normal, float3 worldPos, out Light d
     half directionality = saturate(L1_mag / L0_lum);
     derivedLight.l = dominantDir / L1_mag;
 
-    float3 directionalColor = float3(dot(L1r, derivedLight.l), dot(L1g, derivedLight.l), dot(L1b, derivedLight.l));
-    float3 Li = L0 + max(0, directionalColor);
+    half3 directionalColor = half3(dot(L1r, derivedLight.l), dot(L1g, derivedLight.l), dot(L1b, derivedLight.l));
+    half3 Li = L0 + max(0, directionalColor);
 
-    derivedLight.colorIntensity = float4(Li, 1.0);
+    derivedLight.colorIntensity = half4(Li, 1.0);
     derivedLight.attenuation = directionality;
     derivedLight.NoL = saturate(dot(normal, derivedLight.l));
     #endif
@@ -252,7 +252,7 @@ half3 Irradiance_SampleVRCLightVolumeAdditive(half3 normal, float3 worldPos, out
     derivedLight = (Light)0;
 
     // Fetch Spherical Harmonics (SH) components from the VRC Light Volume
-    float3 L0, L1r, L1g, L1b;
+    half3 L0, L1r, L1g, L1b;
     LightVolumeAdditiveSH(worldPos, L0, L1r, L1g, L1b, normal * getLightVolumeSurfaceBias());
 
     // Compute irradiance using the SH components
@@ -265,11 +265,11 @@ half3 Irradiance_SampleVRCLightVolumeAdditive(half3 normal, float3 worldPos, out
 
     // Add derived light to existing derived light
     #if defined(LIGHTMAP_SPECULAR)
-    float3 nL1x; float3 nL1y; float3 nL1z;
-    nL1x = float3(L1r[0], L1g[0], L1b[0]);
-    nL1y = float3(L1r[1], L1g[1], L1b[1]);
-    nL1z = float3(L1r[2], L1g[2], L1b[2]);
-    float3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
+    half3 nL1x; half3 nL1y; half3 nL1z;
+    nL1x = half3(L1r[0], L1g[0], L1b[0]);
+    nL1y = half3(L1r[1], L1g[1], L1b[1]);
+    nL1z = half3(L1r[2], L1g[2], L1b[2]);
+    half3 dominantDir = half3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
 
     // Determine the light's direction and directionality
     half L0_lum = max(FLT_EPS, luminance(L0));
@@ -277,10 +277,10 @@ half3 Irradiance_SampleVRCLightVolumeAdditive(half3 normal, float3 worldPos, out
     half directionality = saturate(L1_mag / L0_lum);
     derivedLight.l = dominantDir / L1_mag;
 
-    float3 directionalColor = float3(dot(L1r, derivedLight.l), dot(L1g, derivedLight.l), dot(L1b, derivedLight.l));
-    float3 Li = L0 + max(0, directionalColor);
+    half3 directionalColor = half3(dot(L1r, derivedLight.l), dot(L1g, derivedLight.l), dot(L1b, derivedLight.l));
+    half3 Li = L0 + max(0, directionalColor);
 
-    derivedLight.colorIntensity = float4(Li, 1.0);
+    derivedLight.colorIntensity = half4(Li, 1.0);
     derivedLight.attenuation = directionality;
     derivedLight.NoL = saturate(dot(normal, derivedLight.l));
     #endif
@@ -357,19 +357,19 @@ half3 Irradiance_SphericalHarmonicsUnity (half3 normal, half3 ambient, float3 wo
 }
 
 /*
-float3 Irradiance_RoughnessOne(const float3 n) {
+half3 Irradiance_RoughnessOne(const half3 n) {
     // note: lod used is always integer, hopefully the hardware skips tri-linear filtering
     return decodeDataForIBL(textureLod(light_iblSpecular, n, frameUniforms.iblRoughnessOneLevel));
 }
 */
 
-float IrradianceToExposureOcclusion(float3 irradiance)
+half IrradianceToExposureOcclusion(half3 irradiance)
 {
     return saturate(length(irradiance + FLT_EPS) * getExposureOcclusionBias());
 }
 
 // Return light probes or lightmap.
-float3 UnityGI_Irradiance(ShadingParams shading, float3 tangentNormal, out float occlusion, out Light derivedLight)
+float3 UnityGI_Irradiance(ShadingParams shading, float3 tangentNormal, out half occlusion, out Light derivedLight)
 {
     float3 irradiance = shading.ambient;
     // In order for the exposure occlusion to handle mixed lightmaps and etc well, we accumulate
@@ -518,7 +518,7 @@ float3 UnityGI_Irradiance(ShadingParams shading, float3 tangentNormal, out float
 // IBL irradiance dispatch
 //------------------------------------------------------------------------------
 
-float3 get_diffuseIrradiance_notUsed(const float3 n) {
+half3 get_diffuseIrradiance_notUsed(const half3 n) {
         return Irradiance_SphericalHarmonics(n);
 }
 //------------------------------------------------------------------------------
@@ -545,8 +545,8 @@ UnityGIInput InitialiseUnityGIInput(const ShadingParams shading, const PixelPara
     return d;
 }
 
-float perceptualRoughnessToLod(float perceptualRoughness) {
-    const float iblRoughnessOneLevel = 1.0/UNITY_SPECCUBE_LOD_STEPS;
+half perceptualRoughnessToLod(half perceptualRoughness) {
+    const half iblRoughnessOneLevel = 1.0/UNITY_SPECCUBE_LOD_STEPS;
     // The mapping below is a quadratic fit for log2(perceptualRoughness)+iblRoughnessOneLevel when
     // iblRoughnessOneLevel is 4. We found empirically that this mapping works very well for
     // a 256 cubemap with 5 levels used. But also scales well for other iblRoughnessOneLevel values.
@@ -556,14 +556,14 @@ float perceptualRoughnessToLod(float perceptualRoughness) {
     return iblRoughnessOneLevel * perceptualRoughness * (1.7 - 0.7 * perceptualRoughness);
 }
 
-float3 prefilteredRadiance(const float3 r, float perceptualRoughness) {
-    float lod = perceptualRoughnessToLod(perceptualRoughness);
+half3 prefilteredRadiance(const half3 r, half perceptualRoughness) {
+    half lod = perceptualRoughnessToLod(perceptualRoughness);
     return DecodeHDR(UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, r, lod), unity_SpecCube0_HDR);
 }
 
-float3 prefilteredRadiance(const float3 r, float roughness, float offset) {
-    const float iblRoughnessOneLevel = 1.0/UNITY_SPECCUBE_LOD_STEPS;
-    float lod = iblRoughnessOneLevel * roughness;
+half3 prefilteredRadiance(const half3 r, half roughness, half offset) {
+    const half iblRoughnessOneLevel = 1.0/UNITY_SPECCUBE_LOD_STEPS;
+    half lod = iblRoughnessOneLevel * roughness;
     return DecodeHDR(UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, r, lod + offset), unity_SpecCube0_HDR);
 }
 
@@ -574,7 +574,7 @@ half3 Unity_GlossyEnvironment_local (UNITY_ARGS_TEXCUBE(tex), half4 hdr, Unity_G
     // Workaround for issue where objects are blurrier than they should be
     // due to specular AA.
     #if !defined(TARGET_MOBILE) && defined(GEOMETRIC_SPECULAR_AA)
-    float roughnessAdjustment = 1-perceptualRoughness;
+    half roughnessAdjustment = 1-perceptualRoughness;
     roughnessAdjustment = MIN_PERCEPTUAL_ROUGHNESS * roughnessAdjustment * roughnessAdjustment;
     perceptualRoughness = perceptualRoughness - roughnessAdjustment;
     #endif
@@ -592,7 +592,7 @@ half3 Unity_GlossyEnvironment_local (UNITY_ARGS_TEXCUBE(tex), half4 hdr, Unity_G
 
 // Workaround: Construct the correct Unity variables and get the correct Unity spec values
 
-inline half3 UnityGI_prefilteredRadiance(const UnityGIInput data, const float perceptualRoughness, const float3 r)
+inline half3 UnityGI_prefilteredRadiance(const UnityGIInput data, const half perceptualRoughness, const float3 r)
 {
     half3 specular;
 
@@ -635,11 +635,11 @@ inline half3 UnityGI_prefilteredRadiance(const UnityGIInput data, const float pe
     return specular;
 }
 
-float3 getSpecularDominantDirection(const float3 n, const float3 r, float roughness) {
+half3 getSpecularDominantDirection(const half3 n, const half3 r, half roughness) {
     return lerp(r, n, roughness * roughness);
 }
 
-float3 specularDFG(const PixelParams pixel) {
+half3 specularDFG(const PixelParams pixel) {
 #if defined(SHADING_MODEL_CLOTH)
     return pixel.f0 * pixel.dfg.z;
 #else
@@ -656,26 +656,26 @@ float3 specularDFG(const PixelParams pixel) {
  *   direction to match reference renderings when the roughness increases
  */
 
-float3 getReflectedVector(const PixelParams pixel, const float3 v, const float3 n) {
+half3 getReflectedVector(const PixelParams pixel, const half3 v, const half3 n) {
 #if defined(MATERIAL_HAS_ANISOTROPY)
-    float3  anisotropyDirection = pixel.anisotropy >= 0.0 ? pixel.anisotropicB : pixel.anisotropicT;
-    float3  anisotropicTangent  = cross(anisotropyDirection, v);
-    float3  anisotropicNormal   = cross(anisotropicTangent, anisotropyDirection);
-    float bendFactor          = abs(pixel.anisotropy) * saturate(5.0 * pixel.perceptualRoughness);
-    float3  bentNormal          = normalize(lerp(n, anisotropicNormal, bendFactor));
+    half3  anisotropyDirection = pixel.anisotropy >= 0.0 ? pixel.anisotropicB : pixel.anisotropicT;
+    half3  anisotropicTangent  = cross(anisotropyDirection, v);
+    half3  anisotropicNormal   = cross(anisotropicTangent, anisotropyDirection);
+    half bendFactor          = abs(pixel.anisotropy) * saturate(5.0 * pixel.perceptualRoughness);
+    half3  bentNormal          = normalize(lerp(n, anisotropicNormal, bendFactor));
 
-    float3 r = reflect(-v, bentNormal);
+    half3 r = reflect(-v, bentNormal);
 #else
-    float3 r = reflect(-v, n);
+    half3 r = reflect(-v, n);
 #endif
     return r;
 }
 
-float3 getReflectedVector(const ShadingParams shading, const PixelParams pixel, const float3 n) {
+half3 getReflectedVector(const ShadingParams shading, const PixelParams pixel, const half3 n) {
 #if defined(MATERIAL_HAS_ANISOTROPY)
-    float3 r = getReflectedVector(pixel, shading.view, n);
+    half3 r = getReflectedVector(pixel, shading.view, n);
 #else
-    float3 r = shading.reflected;
+    half3 r = shading.reflected;
 #endif
     return getSpecularDominantDirection(n, r, pixel.roughness);
 }
@@ -687,19 +687,19 @@ float3 getReflectedVector(const ShadingParams shading, const PixelParams pixel, 
 #if IBL_INTEGRATION == IBL_INTEGRATION_IMPORTANCE_SAMPLING
 
 void isEvaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel,
-    float specularAO, inout float3 Fd, inout float3 Fr) {
+    half specularAO, inout half3 Fd, inout half3 Fr) {
 #if defined(MATERIAL_HAS_CLEAR_COAT)
 #if defined(MATERIAL_HAS_NORMAL) || defined(MATERIAL_HAS_CLEAR_COAT_NORMAL)
     // We want to use the geometric normal for the clear coat layer
-    float clearCoatNoV = clampNoV(dot(shading.clearCoatNormal, shading.view));
-    float3 clearCoatNormal = shading.clearCoatNormal;
+    half clearCoatNoV = clampNoV(dot(shading.clearCoatNormal, shading.view));
+    half3 clearCoatNormal = shading.clearCoatNormal;
 #else
-    float clearCoatNoV = shading.NoV;
-    float3 clearCoatNormal = shading.normal;
+    half clearCoatNoV = shading.NoV;
+    half3 clearCoatNormal = shading.normal;
 #endif
     // The clear coat layer assumes an IOR of 1.5 (4% reflectance)
-    float Fc = F_Schlick(0.04, 1.0, clearCoatNoV) * pixel.clearCoat;
-    float attenuation = 1.0 - Fc;
+    half Fc = F_Schlick(0.04, 1.0, clearCoatNoV) * pixel.clearCoat;
+    half attenuation = 1.0 - Fc;
     Fd *= attenuation;
     Fr *= attenuation;
 
@@ -711,7 +711,7 @@ void isEvaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel
     p.anisotropy = 0.0;
 #endif
 
-    float3 clearCoatLobe = isEvaluateSpecularIBL(p, clearCoatNormal, shading.view, clearCoatNoV);
+    half3 clearCoatLobe = isEvaluateSpecularIBL(p, clearCoatNormal, shading.view, clearCoatNoV);
     Fr += clearCoatLobe * (specularAO * pixel.clearCoat);
 #endif
 }
@@ -723,7 +723,7 @@ void isEvaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel
 //------------------------------------------------------------------------------
 
 void evaluateClothIndirectDiffuseBRDF(const ShadingParams shading, const PixelParams pixel,
-    inout float diffuse) {
+    inout half diffuse) {
 #if defined(SHADING_MODEL_CLOTH)
 #if defined(MATERIAL_HAS_SUBSURFACE_COLOR)
     // Simulate subsurface scattering with a wrap diffuse term
@@ -733,14 +733,14 @@ void evaluateClothIndirectDiffuseBRDF(const ShadingParams shading, const PixelPa
 }
 
 void evaluateSheenIBL(const ShadingParams shading, const PixelParams pixel,
-    float diffuseAO, inout float3 Fd, inout float3 Fr) {
+    half diffuseAO, inout half3 Fd, inout half3 Fr) {
 #if !defined(SHADING_MODEL_CLOTH) && !defined(SHADING_MODEL_SUBSURFACE)
 #if defined(MATERIAL_HAS_SHEEN_COLOR)
     // Albedo scaling of the base layer before we layer sheen on top
     Fd *= pixel.sheenScaling;
     Fr *= pixel.sheenScaling;
 
-    float3 reflectance = pixel.sheenDFG * pixel.sheenColor;
+    half3 reflectance = pixel.sheenDFG * pixel.sheenColor;
     reflectance *= computeSpecularAO(shading.NoV, diffuseAO, pixel.sheenRoughness);
 
     Fr += reflectance * prefilteredRadiance(shading.reflected, pixel.sheenPerceptualRoughness);
@@ -749,9 +749,9 @@ void evaluateSheenIBL(const ShadingParams shading, const PixelParams pixel,
 }
 
 void evaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel,
-    float diffuseAO, inout float3 Fd, inout float3 Fr) {
+    half diffuseAO, inout half3 Fd, inout half3 Fr) {
 #if IBL_INTEGRATION == IBL_INTEGRATION_IMPORTANCE_SAMPLING
-    float specularAO = computeSpecularAO(shading.NoV, diffuseAO, pixel.clearCoatRoughness);
+    half specularAO = computeSpecularAO(shading.NoV, diffuseAO, pixel.clearCoatRoughness);
     isEvaluateClearCoatIBL(pixel, specularAO, Fd, Fr);
     return;
 #endif
@@ -759,20 +759,20 @@ void evaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel,
 #if defined(MATERIAL_HAS_CLEAR_COAT)
 #if defined(MATERIAL_HAS_NORMAL) || defined(MATERIAL_HAS_CLEAR_COAT_NORMAL)
     // We want to use the geometric normal for the clear coat layer
-    float clearCoatNoV = clampNoV(dot(shading.clearCoatNormal, shading.view));
-    float3 clearCoatR = reflect(-shading.view, shading.clearCoatNormal);
+    half clearCoatNoV = clampNoV(dot(shading.clearCoatNormal, shading.view));
+    half3 clearCoatR = reflect(-shading.view, shading.clearCoatNormal);
 #else
-    float clearCoatNoV = shading.NoV;
-    float3 clearCoatR = shading.reflected;
+    half clearCoatNoV = shading.NoV;
+    half3 clearCoatR = shading.reflected;
 #endif
     // The clear coat layer assumes an IOR of 1.5 (4% reflectance)
-    float Fc = F_Schlick(0.04, 1.0, clearCoatNoV) * pixel.clearCoat;
-    float attenuation = 1.0 - Fc;
+    half Fc = F_Schlick(0.04, 1.0, clearCoatNoV) * pixel.clearCoat;
+    half attenuation = 1.0 - Fc;
     Fd *= attenuation;
     Fr *= attenuation;
 
     // TODO: Should we apply specularAO to the attenuation as well?
-    float specularAO = computeSpecularAO(clearCoatNoV, diffuseAO, pixel.clearCoatRoughness);
+    half specularAO = computeSpecularAO(clearCoatNoV, diffuseAO, pixel.clearCoatRoughness);
     Fr += prefilteredRadiance(clearCoatR, pixel.clearCoatPerceptualRoughness) * (specularAO * Fc);
 #endif
 }
@@ -792,49 +792,49 @@ void evaluateSubsurfaceIBL(const ShadingParams shading, const PixelParams pixel,
 #if defined(HAS_REFRACTION)
 
 struct Refraction {
-    float3 position;
-    float3 direction;
-    float d;
+    half3 position;
+    half3 direction;
+    half d;
 };
 
 void refractionSolidSphere(const ShadingParams shading, const PixelParams pixel,
-    const float3 n, float3 r, out Refraction ray) {
+    const half3 n, half3 r, out Refraction ray) {
     r = refract(r, n, pixel.etaIR);
-    float NoR = dot(n, r);
-    float d = pixel.thickness * -NoR;
-    ray.position = float3(shading.position + r * d);
+    half NoR = dot(n, r);
+    half d = pixel.thickness * -NoR;
+    ray.position = half3(shading.position + r * d);
     ray.d = d;
-    float3 n1 = normalize(NoR * r - n * 0.5);
+    half3 n1 = normalize(NoR * r - n * 0.5);
     ray.direction = refract(r, n1,  pixel.etaRI);
 }
 
 void refractionSolidBox(const ShadingParams shading, const PixelParams pixel,
-    const float3 n, float3 r, out Refraction ray) {
-    float3 rr = refract(r, n, pixel.etaIR);
-    float NoR = dot(n, rr);
-    float d = pixel.thickness / max(-NoR, 0.001);
-    ray.position = float3(shading.position + rr * d);
+    const half3 n, half3 r, out Refraction ray) {
+    half3 rr = refract(r, n, pixel.etaIR);
+    half NoR = dot(n, rr);
+    half d = pixel.thickness / max(-NoR, 0.001);
+    ray.position = half3(shading.position + rr * d);
     ray.direction = r;
     ray.d = d;
 #if REFRACTION_MODE == REFRACTION_MODE_CUBEMAP
     // fudge direction vector, so we see the offset due to the thickness of the object
-    float envDistance = 10.0; // this should come from a ubo
+    half envDistance = 10.0; // this should come from a ubo
     ray.direction = normalize((ray.position - shading.position) + ray.direction * envDistance);
 #endif
 }
 
 void refractionThinSphere(const ShadingParams shading, const PixelParams pixel,
-    const float3 n, float3 r, out Refraction ray) {
-    float d = 0.0;
+    const half3 n, half3 r, out Refraction ray) {
+    half d = 0.0;
 #if defined(MATERIAL_HAS_MICRO_THICKNESS)
     // note: we need the refracted ray to calculate the distance traveled
     // we could use shading.NoV, but we would lose the dependency on ior.
-    float3 rr = refract(r, n, pixel.etaIR);
-    float NoR = dot(n, rr);
+    half3 rr = refract(r, n, pixel.etaIR);
+    half NoR = dot(n, rr);
     d = pixel.uThickness / max(-NoR, 0.001);
-    ray.position = float3(shading.position + rr * d);
+    ray.position = half3(shading.position + rr * d);
 #else
-    ray.position = float3(shading.position);
+    ray.position = half3(shading.position);
 #endif
     ray.direction = r;
     ray.d = d;
@@ -843,12 +843,12 @@ void refractionThinSphere(const ShadingParams shading, const PixelParams pixel,
 void applyRefraction(
     const ShadingParams shading,
     const PixelParams pixel,
-    float3 E, float3 Fd, float3 Fr,
-    inout float3 color) {
+    half3 E, half3 Fd, half3 Fr,
+    inout half3 color) {
 
     Refraction ray;
-    float iblLuminance = 1.0; // unused
-    float refractionLodOffset = 0.0; // unused
+    half iblLuminance = 1.0; // unused
+    half refractionLodOffset = 0.0; // unused
 
 #if REFRACTION_TYPE == REFRACTION_TYPE_SOLID
     refractionSolidSphere(shading, pixel, shading.normal, -shading.view, ray);
@@ -861,15 +861,15 @@ void applyRefraction(
     // compute transmission T
 #if defined(MATERIAL_HAS_ABSORPTION)
 #if defined(MATERIAL_HAS_THICKNESS) || defined(MATERIAL_HAS_MICRO_THICKNESS)
-    float3 T = min(1.0, exp(-pixel.absorption * ray.d));
+    half3 T = min(1.0, exp(-pixel.absorption * ray.d));
 #else
-    float3 T = 1.0 - pixel.absorption;
+    half3 T = 1.0 - pixel.absorption;
 #endif
 #endif
 
     // Roughness remapping so that an IOR of 1.0 means no microfacet refraction and an IOR
     // of 1.5 has full microfacet refraction
-    float perceptualRoughness = lerp(pixel.perceptualRoughnessUnclamped, 0.0,
+    half perceptualRoughness = lerp(pixel.perceptualRoughnessUnclamped, 0.0,
             saturate(pixel.etaIR * 3.0 - 2.0));
 #if REFRACTION_TYPE == REFRACTION_TYPE_THIN
     // For thin surfaces, the light will bounce off at the second interface in the direction of
@@ -889,12 +889,12 @@ void applyRefraction(
 
     // Gather Unity GI data
     UnityGIInput unityData = InitialiseUnityGIInput(shading, pixel);
-    float3 Ft = UnityGI_prefilteredRadiance(unityData, perceptualRoughness, ray.direction) * iblLuminance;
+    half3 Ft = UnityGI_prefilteredRadiance(unityData, perceptualRoughness, ray.direction) * iblLuminance;
 #else
     // compute the point where the ray exits the medium, if needed
-    //float4 p = float4(frameUniforms.clipFromWorldMatrix * float4(ray.position, 1.0));
+    //half4 p = half4(frameUniforms.clipFromWorldMatrix * half4(ray.position, 1.0));
     //p.xy = uvToRenderTargetUV(p.xy * (0.5 / p.w) + 0.5);
-    float4 p = UnityWorldToClipPos(float4(ray.position, 1.0));
+    half4 p = UnityWorldToClipPos(half4(ray.position, 1.0));
     p.w =  (0.5 / p.w);
     p.xy = ComputeGrabScreenPos(p);
 
@@ -903,11 +903,11 @@ void applyRefraction(
     // cubemap and screen-space modes match at perceptualRoughness 0.125
     // TODO: Remove this factor temporarily until we find a better solution
     //       This overblurs many scenes and needs a more principled approach
-    // float tweakedPerceptualRoughness = perceptualRoughness * 1.74;
-    float tweakedPerceptualRoughness = perceptualRoughness;
-    float lod = max(0.0, 2.0 * log2(tweakedPerceptualRoughness) + refractionLodOffset);
+    // half tweakedPerceptualRoughness = perceptualRoughness * 1.74;
+    half tweakedPerceptualRoughness = perceptualRoughness;
+    half lod = max(0.0, 2.0 * log2(tweakedPerceptualRoughness) + refractionLodOffset);
 
-    float3 Ft = UNITY_SAMPLE_TEX2D_LOD(REFRACTION_SOURCE, p.xy, lod).rgb * REFRACTION_MULTIPLIER;
+    half3 Ft = UNITY_SAMPLE_TEX2D_LOD(REFRACTION_SOURCE, p.xy, lod).rgb * REFRACTION_MULTIPLIER;
 #endif
 
     // base color changes the amount of light passing through the boundary
@@ -928,9 +928,9 @@ void applyRefraction(
 #endif
 
 void combineDiffuseAndSpecular(const ShadingParams shading, const PixelParams pixel,
-        const float3 E, const float3 Fd, const float3 Fr,
-        inout float3 color) {
-    const float iblLuminance = 1.0; // Unknown
+        const half3 E, const half3 Fd, const half3 Fr,
+        inout half3 color) {
+    const half iblLuminance = 1.0; // Unknown
 #if defined(HAS_REFRACTION)
     applyRefraction(shading, pixel, E, Fd, Fr, color);
 #else
@@ -939,10 +939,10 @@ void combineDiffuseAndSpecular(const ShadingParams shading, const PixelParams pi
 }
 
 void evaluateIBL(const ShadingParams shading, const MaterialInputs material, const PixelParams pixel,
-    inout float3 color) {
-    float ssao = 1.0; // Not implemented
-    float lightmapAO = 1.0; // Specular-only AO derived from baked lighting and exposure occlusion setting
-    float3 tangentNormal = float3(0, 0, 1);
+    inout half3 color) {
+    half ssao = 1.0; // Not implemented
+    half lightmapAO = 1.0; // Specular-only AO derived from baked lighting and exposure occlusion setting
+    half3 tangentNormal = half3(0, 0, 1);
 #if defined(MATERIAL_HAS_NORMAL)
     tangentNormal = material.normal;
 #endif
@@ -952,26 +952,26 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     // Gather Unity GI data
     UnityGIInput unityData = InitialiseUnityGIInput(shading, pixel);
 
-    float3 unityIrradiance = UnityGI_Irradiance(shading, tangentNormal,
+    half3 unityIrradiance = UnityGI_Irradiance(shading, tangentNormal,
         /*out*/ lightmapAO, /*out*/ derivedLight);
 
     // specular layer
-    float3 Fr;
+    half3 Fr;
 #if IBL_INTEGRATION == IBL_INTEGRATION_PREFILTERED_CUBEMAP
-    float3 E = specularDFG(pixel);
-    float3 r = getReflectedVector(shading, pixel, shading.normal);
+    half3 E = specularDFG(pixel);
+    half3 r = getReflectedVector(shading, pixel, shading.normal);
     Fr = E * UnityGI_prefilteredRadiance(unityData, pixel.perceptualRoughness, r);
 #elif IBL_INTEGRATION == IBL_INTEGRATION_IMPORTANCE_SAMPLING
     // Not supported
-    float3 E = float3(0.0); // TODO: fix for importance sampling
+    half3 E = half3(0.0); // TODO: fix for importance sampling
     Fr = isEvaluateSpecularIBL(pixel, shading.normal, shading.view, shading.NoV);
 #endif
 
     // Ambient occlusion
-    float diffuseAO = min(material.ambientOcclusion, ssao);
-    float specularAO = computeSpecularAO(shading.NoV, diffuseAO*lightmapAO, pixel.roughness);
+    half diffuseAO = min(material.ambientOcclusion, ssao);
+    half specularAO = computeSpecularAO(shading.NoV, diffuseAO*lightmapAO, pixel.roughness);
 
-    float3 specularSingleBounceAO = singleBounceAO(specularAO) * pixel.energyCompensation;
+    half3 specularSingleBounceAO = singleBounceAO(specularAO) * pixel.energyCompensation;
     Fr *= specularSingleBounceAO;
 
     // Gather LTCGI data, if present.
@@ -988,8 +988,8 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     );
 
     // Apply specular AO seperately for LTCGI pass, as it is a seperate set of lights.
-    float ltc_specularAO = computeSpecularAO(shading.NoV, diffuseAO, pixel.roughness);
-    float3 ltc_Fr =  E * acc.specular;
+    half ltc_specularAO = computeSpecularAO(shading.NoV, diffuseAO, pixel.roughness);
+    half3 ltc_Fr =  E * acc.specular;
 
     ltc_Fr *= singleBounceAO(ltc_specularAO) * pixel.energyCompensation;
     specularAO = lerp(specularAO, ltc_specularAO, saturate(acc.specularIntensity));
@@ -998,21 +998,21 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
 #endif
 
     // diffuse layer
-    float diffuseBRDF = singleBounceAO(diffuseAO); // Fd_Lambert() is baked in the SH below
+    half diffuseBRDF = singleBounceAO(diffuseAO); // Fd_Lambert() is baked in the SH below
 
     evaluateClothIndirectDiffuseBRDF(shading, pixel, diffuseBRDF);
 
 #if defined(MATERIAL_HAS_BENT_NORMAL)
-    float3 diffuseNormal = shading.bentNormal;
+    half3 diffuseNormal = shading.bentNormal;
 #else
-    float3 diffuseNormal = shading.normal;
+    half3 diffuseNormal = shading.normal;
 #endif
 
 #if IBL_INTEGRATION == IBL_INTEGRATION_PREFILTERED_CUBEMAP
-    //float3 diffuseIrradiance = get_diffuseIrradiance(diffuseNormal);
-    float3 diffuseIrradiance = unityIrradiance;
+    //half3 diffuseIrradiance = get_diffuseIrradiance(diffuseNormal);
+    half3 diffuseIrradiance = unityIrradiance;
 #elif IBL_INTEGRATION == IBL_INTEGRATION_IMPORTANCE_SAMPLING
-    float3 diffuseIrradiance = isEvaluateDiffuseIBL(pixel, diffuseNormal, shading.view);
+    half3 diffuseIrradiance = isEvaluateDiffuseIBL(pixel, diffuseNormal, shading.view);
 #endif
 
 #if defined(_LTCGI)
@@ -1025,7 +1025,7 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
         diffuseIrradiance += Irradiance_SampleVRCLightVolumeAdditive(shading.normal, shading.position, volumeLight);
     #endif
 
-    float3 Fd = pixel.diffuseColor * diffuseIrradiance * (1.0 - E) * diffuseBRDF;
+    half3 Fd = pixel.diffuseColor * diffuseIrradiance * (1.0 - E) * diffuseBRDF;
 
     // subsurface layer
     evaluateSubsurfaceIBL(shading, pixel, diffuseIrradiance, Fd, Fr);
@@ -1056,7 +1056,7 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     if (derivedLight.NoL >= 0.0)
     {
         // derived light contribution from lightmap
-        float diffuseAOForLightmap = min(material.ambientOcclusion * 0.8 + 0.3, 1.0);
+        half diffuseAOForLightmap = min(material.ambientOcclusion * 0.8 + 0.3, 1.0);
         diffuseAOForLightmap = computeMicroShadowing(derivedLight.NoL, diffuseAOForLightmap);
         color += max(0, surfaceShading(shading, pixelForBakedSpecular, derivedLight, diffuseAOForLightmap));
     };
@@ -1064,7 +1064,7 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     if (volumeLight.NoL >= 0.0)
     {
         // derived light contribution from lightmap
-        float diffuseAOForLightmap = min(material.ambientOcclusion * 0.8 + 0.3, 1.0);
+        half diffuseAOForLightmap = min(material.ambientOcclusion * 0.8 + 0.3, 1.0);
         diffuseAOForLightmap = computeMicroShadowing(volumeLight.NoL, diffuseAOForLightmap);
         color += max(0, surfaceShading(shading, pixelForBakedSpecular, volumeLight, diffuseAOForLightmap));
     };
