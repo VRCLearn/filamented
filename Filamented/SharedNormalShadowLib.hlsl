@@ -6,22 +6,22 @@
 // Please define a NormalMapShadowsParam parameter
 // and SampleNormalMap function to sample the normal map.
 
-float NormalMapShadows (float3 lightDirTangent, NormalMapShadowsParam nmsParam, float noise,
-	float heightScale, float shadowHardness)
+half NormalMapShadows (half3 lightDirTangent, NormalMapShadowsParam nmsParam, half noise,
+	half heightScale, half shadowHardness)
 {
-	const float screenShadowSamples = 20;
-	const float hardness = heightScale * shadowHardness;
-	const float sampleStep = 1.0 / screenShadowSamples;
+	const half screenShadowSamples = 20;
+	const half hardness = heightScale * shadowHardness;
+	const half sampleStep = 1.0 / screenShadowSamples;
 
-	float2 dir = lightDirTangent.xy * heightScale;
+	half2 dir = lightDirTangent.xy * heightScale;
 
 	// Redundancy can't be helped
-	float3 normal = SampleNormalMap(nmsParam, 0);
+	half3 normal = SampleNormalMap(nmsParam, 0);
 
 	lightDirTangent = normalize(lightDirTangent);
-    float tangentNdotL = saturate(dot(lightDirTangent, normal));
+    half tangentNdotL = saturate(dot(lightDirTangent, normal));
 
-	float currentSample = sampleStep - sampleStep * noise;
+    half currentSample = sampleStep - sampleStep * noise;
 
     // Skip on backfaces
 	currentSample += (tangentNdotL <= 0.0);
@@ -34,9 +34,9 @@ float NormalMapShadows (float3 lightDirTangent, NormalMapShadowsParam nmsParam, 
 	than previous maximal value, increase hardness of shadow.
 	*/
 
-	float result = 0;
-	float slope = -tangentNdotL;
-	float maxslope = 0.0;
+	half result = 0;
+	half slope = -tangentNdotL;
+	half maxslope = 0.0;
 	while (currentSample <= 1.0)
 	{
 		normal = SampleNormalMap(nmsParam, dir * currentSample);

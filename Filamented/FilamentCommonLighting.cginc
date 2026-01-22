@@ -2,9 +2,9 @@
 #define FILAMENT_COMMON_LIGHTING
 
 struct Light {
-    half4 colorIntensity;  // rgb, pre-exposed intensity
+    float4 colorIntensity;  // rgb, pre-exposed intensity
     float3 l;
-    half4 attenuation;
+    half attenuation;
     half NoL;
     float3 worldPosition;
 };

@@ -20,6 +20,12 @@
 #define saturateMediump(x) x
 #endif
 
+#ifdef TARGET_MOBILE
+#define PREVENT_DIV0(n, d, magic)   ((n) / max(d, magic))
+#else
+#define PREVENT_DIV0(n, d, magic)   ((n) / (d))
+#endif
+
 #define atan(x,y)          atan2(y,x)
 
 //------------------------------------------------------------------------------

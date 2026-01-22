@@ -2,30 +2,30 @@
 #define COMMON_SH_INCLUDED
 
 /* http://www.geomerics.com/wp-content/uploads/2015/08/CEDEC_Geomerics_ReconstructingDiffuseLighting1.pdf */
-float shEvaluateDiffuseL1Geomerics_local(float L0, float3 L1, float3 n)
+half shEvaluateDiffuseL1Geomerics_local(half L0, half3 L1, float3 n)
 {
     // average energy
     // Add max0 to fix an issue caused by probes having a negative ambient component (???)
     // I'm not sure how normal that is but this can't handle it
-    float R0 = max(L0, 0);
+    half R0 = max(L0, 0);
 
     // avg direction of incoming light
-    float3 R1 = 0.5f * L1;
+    half3 R1 = 0.5f * L1;
 
     // directional brightness
-    float lenR1 = length(R1);
+    half lenR1 = length(R1);
 
     // linear angle between normal and direction 0-1
-    float q = dot(normalize(R1), n) * 0.5 + 0.5;
+    half q = dot(normalize(R1), n) * 0.5 + 0.5;
     q = saturate(q); // Thanks to ScruffyRuffles for the bug identity.
 
     // power for q
     // lerps from 1 (linear) to 3 (cubic) based on directionality
-    float p = 1.0f + 2.0f * lenR1 / R0;
+    half p = 1.0f + 2.0f * lenR1 / R0;
 
     // dynamic range constant
     // should vary between 4 (highly directional) and 0 (ambient)
-    float a = (1.0f - lenR1 / R0) / (1.0f + lenR1 / R0);
+    half a = (1.0f - lenR1 / R0) / (1.0f + lenR1 / R0);
 
     return R0 * (a + (1.0f - a) * (p + 1.0f) * pow(q, p));
 }
@@ -46,7 +46,7 @@ const static float L1IrradianceToRadiance = sqrt(3 * UNITY_PI);
 
 const static float4 L0L1IrradianceToRadiance = float4(L0IrradianceToRadiance, L1IrradianceToRadiance, L1IrradianceToRadiance, L1IrradianceToRadiance);
 
-float SHEvalLinearL0L1_ZH3Hallucinate(float4 sh, float3 normal)
+half SHEvalLinearL0L1_ZH3Hallucinate(half4 sh, float3 normal)
 {
     float4 radiance = sh * L0L1IrradianceToRadiance;
 
@@ -68,7 +68,7 @@ float SHEvalLinearL0L1_ZH3Hallucinate(float4 sh, float3 normal)
 // Evaluate irradiance in direction normal from the linear SH sh,
 // hallucinating the ZH3 coefficient and then using that and linear SH
 // for reconstruction.
-float3 SHEvalLinearL0L1_ZH3Hallucinate(float3 normal)
+half3 SHEvalLinearL0L1_ZH3Hallucinate(float3 normal)
 {
     float3 shL0 = float3(unity_SHAr.w, unity_SHAg.w, unity_SHAb.w) +
         float3(unity_SHBr.z, unity_SHBg.z, unity_SHBb.z) / 3.0;

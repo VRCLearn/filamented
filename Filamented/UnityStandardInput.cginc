@@ -318,7 +318,7 @@ struct VertexInput
         PerPixelHeightDisplacementParam InitPerPixelHeightDisplacementParam(float2 uv)
         {
             PerPixelHeightDisplacementParam ppd;
-         
+
             ppd.uv = uv;
             ppd.dX = ddx(uv);
             ppd.dY = ddy(uv);
@@ -331,7 +331,7 @@ struct VertexInput
             float height = 1;
             float strength = _Parallax;
             // Probably can use LOD to skip reading if too far
-            height = 
+            height =
                 tex2Dgrad(_ParallaxMap, ppdParam.uv + offset, ppdParam.dX, ppdParam.dY).g;
 
             height = clamp(height, 0, 0.9999);
@@ -356,7 +356,7 @@ struct VertexInput
             PerPixelHeightDisplacementParam ppd = InitPerPixelHeightDisplacementParam(texcoords.xy);
             float height = 1.0;
             viewDir = normalize(viewDir);
-            viewDir.xy /= (viewDir.z + 0.42); 
+            viewDir.xy /= (viewDir.z + 0.42);
             float2 offset = ParallaxRaymarching(viewDir, ppd, _Parallax, /* out */ height);
             return float4(texcoords.xy + offset, texcoords.zw + offset);
         #endif
@@ -386,7 +386,7 @@ struct VertexInput
     NormalMapShadowsParam InitNormalMapShadowsParam(float4 uv)
     {
         NormalMapShadowsParam nms;
-     
+
         nms.uv = uv;
         nms.dX = ddx(uv.xy);
         nms.dY = ddy(uv.xy);
@@ -452,9 +452,9 @@ bool getIsBakeryVertexMode()
 #if defined(USING_BAKERY_VERTEXLM)
     // Todo: Move these somewhere better.
     #define BAKERYMODE_DEFAULT 0
-    // When vertex lightmap is set in Bakery, it sets this float to the renderer via 
+    // When vertex lightmap is set in Bakery, it sets this float to the renderer via
     // SetPropertyBlock. Similarly, it only sets RNM/SH if the textures are used and present,
-    // but those are switched at compile time per-material. 
+    // but those are switched at compile time per-material.
     #define BAKERYMODE_VERTEXLM 1.0f
     #define BAKERYMODE_RNM 2.0f
     #define BAKERYMODE_SH 3.0f

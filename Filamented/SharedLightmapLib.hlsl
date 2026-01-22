@@ -3,12 +3,12 @@
 
 #include "SharedSHLib.hlsl"
 
-float4 UnityLightmap_ColorIntensitySeperated(float3 lightmap) {
+half4 UnityLightmap_ColorIntensitySeperated(half3 lightmap) {
     lightmap += 0.000001;
     return float4(lightmap.xyz / 1, 1);
 }
 
-float4 SampleLightmapBicubic(float2 uv)
+half4 SampleLightmapBicubic(float2 uv)
 {
     #if defined(SHADER_API_D3D11)
         float width, height;
@@ -23,7 +23,7 @@ float4 SampleLightmapBicubic(float2 uv)
     #endif
 }
 
-float4 SampleLightmapDirBicubic(float2 uv)
+half4 SampleLightmapDirBicubic(float2 uv)
 {
     // We don't need to sample the directionality with bicubic filtering
     #if defined(SHADER_API_D3D11) && false
@@ -39,7 +39,7 @@ float4 SampleLightmapDirBicubic(float2 uv)
     #endif
 }
 
-float4 SampleDynamicLightmapBicubic(float2 uv)
+half4 SampleDynamicLightmapBicubic(float2 uv)
 {
     #if defined(SHADER_API_D3D11)
         float width, height;
@@ -54,7 +54,7 @@ float4 SampleDynamicLightmapBicubic(float2 uv)
     #endif
 }
 
-float4 SampleDynamicLightmapDirBicubic(float2 uv)
+half4 SampleDynamicLightmapDirBicubic(float2 uv)
 {
     // We don't need to sample the directionality with bicubic filtering
     #if defined(SHADER_API_D3D11) && false
@@ -70,7 +70,7 @@ float4 SampleDynamicLightmapDirBicubic(float2 uv)
     #endif
 }
 
-inline float3 DecodeDirectionalLightmapSpecular(half3 color, half4 dirTex, half3 normalWorld,
+inline half3 DecodeDirectionalLightmapSpecular(half3 color, half4 dirTex, half3 normalWorld,
     const bool isRealtimeLightmap, fixed4 realtimeNormalTex, out Light o_light)
 {
     o_light = (Light)0;
@@ -105,13 +105,13 @@ inline float3 DecodeDirectionalLightmapSpecular(half3 color, half4 dirTex, half3
 
 #if defined(USING_BAKERY) && defined(LIGHTMAP_ON)
 // needs specular variant?
-float3 DecodeRNMLightmap(half3 color, half2 lightmapUV, half3 normalTangent, float3x3 tangentToWorld, out Light o_light)
+half3 DecodeRNMLightmap(half3 color, half2 lightmapUV, half3 normalTangent, float3x3 tangentToWorld, out Light o_light)
 {
     const float rnmBasis0 = float3(0.816496580927726f, 0, 0.5773502691896258f);
     const float rnmBasis1 = float3(-0.4082482904638631f, 0.7071067811865475f, 0.5773502691896258f);
     const float rnmBasis2 = float3(-0.4082482904638631f, -0.7071067811865475f, 0.5773502691896258f);
 
-    float3 irradiance;
+    half3 irradiance;
     o_light = (Light)0;
 
     #if defined(SHADER_API_D3D11)
@@ -120,13 +120,13 @@ float3 DecodeRNMLightmap(half3 color, half2 lightmapUV, half3 normalTangent, flo
 
         float4 rnm_TexelSize = float4(width, height, 1.0/width, 1.0/height);
 
-        float3 rnm0 = DecodeLightmap(SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM0, sampler_RNM0), lightmapUV, rnm_TexelSize));
-        float3 rnm1 = DecodeLightmap(SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM1, sampler_RNM0), lightmapUV, rnm_TexelSize));
-        float3 rnm2 = DecodeLightmap(SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM2, sampler_RNM0), lightmapUV, rnm_TexelSize));
+        half3 rnm0 = DecodeLightmap(SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM0, sampler_RNM0), lightmapUV, rnm_TexelSize));
+        half3 rnm1 = DecodeLightmap(SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM1, sampler_RNM0), lightmapUV, rnm_TexelSize));
+        half3 rnm2 = DecodeLightmap(SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM2, sampler_RNM0), lightmapUV, rnm_TexelSize));
     #else
-        float3 rnm0 = DecodeLightmap(SAMPLE_TEXTURE2D(_RNM0, sampler_RNM0, lightmapUV));
-        float3 rnm1 = DecodeLightmap(SAMPLE_TEXTURE2D(_RNM1, sampler_RNM0, lightmapUV));
-        float3 rnm2 = DecodeLightmap(SAMPLE_TEXTURE2D(_RNM2, sampler_RNM0, lightmapUV));
+        half3 rnm0 = DecodeLightmap(SAMPLE_TEXTURE2D(_RNM0, sampler_RNM0, lightmapUV));
+        half3 rnm1 = DecodeLightmap(SAMPLE_TEXTURE2D(_RNM1, sampler_RNM0, lightmapUV));
+        half3 rnm2 = DecodeLightmap(SAMPLE_TEXTURE2D(_RNM2, sampler_RNM0, lightmapUV));
     #endif
 
     normalTangent.g *= -1;
@@ -140,8 +140,8 @@ float3 DecodeRNMLightmap(half3 color, half2 lightmapUV, half3 normalTangent, flo
                           rnmBasis1 * luminance(rnm1) +
                           rnmBasis2 * luminance(rnm2);
 
-    float3 dominantDirTN = normalize(dominantDirT);
-    float3 specColor = saturate(dot(rnmBasis0, dominantDirTN)) * rnm0 +
+    half3 dominantDirTN = normalize(dominantDirT);
+    half3 specColor = saturate(dot(rnmBasis0, dominantDirTN)) * rnm0 +
                        saturate(dot(rnmBasis1, dominantDirTN)) * rnm1 +
                        saturate(dot(rnmBasis2, dominantDirTN)) * rnm2;
 
@@ -158,9 +158,9 @@ float3 DecodeRNMLightmap(half3 color, half2 lightmapUV, half3 normalTangent, flo
     return irradiance;
 }
 
-float3 DecodeSHLightmap(half3 L0, half2 lightmapUV, half3 normalWorld, out Light o_light)
+half3 DecodeSHLightmap(half3 L0, half2 lightmapUV, half3 normalWorld, out Light o_light)
 {
-    float3 irradiance;
+    half3 irradiance;
     o_light = (Light)0;
 
     #if defined(SHADER_API_D3D11)
@@ -169,43 +169,43 @@ float3 DecodeSHLightmap(half3 L0, half2 lightmapUV, half3 normalWorld, out Light
 
         float4 rnm_TexelSize = float4(width, height, 1.0/width, 1.0/height);
 
-        float3 nL1x = SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM0, sampler_RNM0), lightmapUV, rnm_TexelSize);
-        float3 nL1y = SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM1, sampler_RNM0), lightmapUV, rnm_TexelSize);
-        float3 nL1z = SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM2, sampler_RNM0), lightmapUV, rnm_TexelSize);
+        half3 nL1x = SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM0, sampler_RNM0), lightmapUV, rnm_TexelSize);
+        half3 nL1y = SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM1, sampler_RNM0), lightmapUV, rnm_TexelSize);
+        half3 nL1z = SampleTexture2DBicubicFilter(TEXTURE2D_ARGS(_RNM2, sampler_RNM0), lightmapUV, rnm_TexelSize);
     #else
-        float3 nL1x = SAMPLE_TEXTURE2D(_RNM0, sampler_RNM0, lightmapUV);
-        float3 nL1y = SAMPLE_TEXTURE2D(_RNM1, sampler_RNM0, lightmapUV);
-        float3 nL1z = SAMPLE_TEXTURE2D(_RNM2, sampler_RNM0, lightmapUV);
+        half3 nL1x = SAMPLE_TEXTURE2D(_RNM0, sampler_RNM0, lightmapUV);
+        half3 nL1y = SAMPLE_TEXTURE2D(_RNM1, sampler_RNM0, lightmapUV);
+        half3 nL1z = SAMPLE_TEXTURE2D(_RNM2, sampler_RNM0, lightmapUV);
     #endif
 
     nL1x = nL1x * 2 - 1;
     nL1y = nL1y * 2 - 1;
     nL1z = nL1z * 2 - 1;
-    float3 L1x = nL1x * L0 * 2;
-    float3 L1y = nL1y * L0 * 2;
-    float3 L1z = nL1z * L0 * 2;
+    half3 L1x = nL1x * L0 * 2;
+    half3 L1y = nL1y * L0 * 2;
+    half3 L1z = nL1z * L0 * 2;
 
     #ifdef BAKERY_SHNONLINEAR
-        float lumaL0 = dot(L0, float(1));
-        float lumaL1x = dot(L1x, float(1));
-        float lumaL1y = dot(L1y, float(1));
-        float lumaL1z = dot(L1z, float(1));
+        half lumaL0 = dot(L0, half(1));
+        half lumaL1x = dot(L1x, half(1));
+        half lumaL1y = dot(L1y, half(1));
+        half lumaL1z = dot(L1z, half(1));
 
-        float lumaSH = shEvaluateDiffuseL1Geomerics_local(lumaL0, float3(lumaL1x, lumaL1y, lumaL1z), normalWorld);
+        half lumaSH = shEvaluateDiffuseL1Geomerics_local(lumaL0, float3(lumaL1x, lumaL1y, lumaL1z), normalWorld);
 
         #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
             lumaSH = SHEvalLinearL0L1_ZH3Hallucinate(float4(lumaL0, lumaL1y, lumaL1z, lumaL1x), normalWorld);
         #endif
 
         irradiance = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
-        float regularLumaSH = dot(irradiance, 1);
+        half regularLumaSH = dot(irradiance, 1);
         irradiance *= lerp(1, lumaSH / regularLumaSH, saturate(regularLumaSH*16));
     #else
         irradiance = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
     #endif
 
     #if defined(LIGHTMAP_SPECULAR)
-    float3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
+    half3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
 
     o_light.l = dominantDir;
     half directionality = max(0.001, length(o_light.l));
@@ -222,42 +222,42 @@ float3 DecodeSHLightmap(half3 L0, half2 lightmapUV, half3 normalWorld, out Light
 #endif // USING_BAKERY
 
 #if defined(USING_BAKERY_VERTEXLMSH)
-float3 DecodeSHLightmapVertex(half3 L0, half3 ambientSH[3], half3 normalWorld, out Light o_light)
+half3 DecodeSHLightmapVertex(half3 L0, half3 ambientSH[3], half3 normalWorld, out Light o_light)
 {
-    float3 irradiance;
+    half3 irradiance;
     o_light = (Light)0;
 
-    float3 nL1x = ambientSH[0];
-    float3 nL1y = ambientSH[1];
-    float3 nL1z = ambientSH[2];
+    half3 nL1x = ambientSH[0];
+    half3 nL1y = ambientSH[1];
+    half3 nL1z = ambientSH[2];
 
     nL1x = nL1x * 2 - 1;
     nL1y = nL1y * 2 - 1;
     nL1z = nL1z * 2 - 1;
-    float3 L1x = nL1x * L0 * 2;
-    float3 L1y = nL1y * L0 * 2;
-    float3 L1z = nL1z * L0 * 2;
+    half3 L1x = nL1x * L0 * 2;
+    half3 L1y = nL1y * L0 * 2;
+    half3 L1z = nL1z * L0 * 2;
 
     #ifdef BAKERY_SHNONLINEAR
-        float lumaL0 = dot(L0, float(1));
-        float lumaL1x = dot(L1x, float(1));
-        float lumaL1y = dot(L1y, float(1));
-        float lumaL1z = dot(L1z, float(1));
-        float lumaSH = shEvaluateDiffuseL1Geomerics_local(lumaL0, float3(lumaL1x, lumaL1y, lumaL1z), normalWorld);
+        half lumaL0 = dot(L0, half(1));
+        half lumaL1x = dot(L1x, half(1));
+        half lumaL1y = dot(L1y, half(1));
+        half lumaL1z = dot(L1z, half(1));
+        half lumaSH = shEvaluateDiffuseL1Geomerics_local(lumaL0, half3(lumaL1x, lumaL1y, lumaL1z), normalWorld);
 
         #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
             lumaSH = SHEvalLinearL0L1_ZH3Hallucinate(float4(lumaL0, lumaL1y, lumaL1z, lumaL1x), normalWorld);
         #endif
 
         irradiance = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
-        float regularLumaSH = dot(irradiance, 1);
+        half regularLumaSH = dot(irradiance, 1);
         irradiance *= lerp(1, lumaSH / regularLumaSH, saturate(regularLumaSH*16));
     #else
         irradiance = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
     #endif
 
     #if defined(LIGHTMAP_SPECULAR)
-    float3 dominantDir = float3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
+    half3 dominantDir = half3(luminance(nL1x), luminance(nL1y), luminance(nL1z));
 
     o_light.l = dominantDir;
     half directionality = max(0.001, length(o_light.l));
@@ -274,31 +274,31 @@ float3 DecodeSHLightmapVertex(half3 L0, half3 ambientSH[3], half3 normalWorld, o
 #endif // USING_BAKERY_VERTEXLMSH
 
 #if defined(_BAKERY_MONOSH)
-float3 DecodeMonoSHLightmap(half3 L0, half3 dominantDir, half3 normalWorld, out Light o_light, const bool remapDir = true)
+half3 DecodeMonoSHLightmap(half3 L0, half3 dominantDir, half3 normalWorld, out Light o_light, const bool remapDir = true)
 {
     o_light = (Light)0;
 
     // Vertex mode is already in -1 to 1 range.
-    float3 nL1 = remapDir? dominantDir * 2 - 1 : dominantDir;
-    float3 L1x = nL1.x * L0 * 2;
-    float3 L1y = nL1.y * L0 * 2;
-    float3 L1z = nL1.z * L0 * 2;
+    half3 nL1 = remapDir? dominantDir * 2 - 1 : dominantDir;
+    half3 L1x = nL1.x * L0 * 2;
+    half3 L1y = nL1.y * L0 * 2;
+    half3 L1z = nL1.z * L0 * 2;
 
-    float3 sh;
+    half3 sh;
 
     #if BAKERY_SHNONLINEAR
-        float lumaL0 = dot(L0, 1);
-        float lumaL1x = dot(L1x, 1);
-        float lumaL1y = dot(L1y, 1);
-        float lumaL1z = dot(L1z, 1);
-        float lumaSH = shEvaluateDiffuseL1Geomerics_local(lumaL0, float3(lumaL1x, lumaL1y, lumaL1z), normalWorld);
+        half lumaL0 = dot(L0, 1);
+        half lumaL1x = dot(L1x, 1);
+        half lumaL1y = dot(L1y, 1);
+        half lumaL1z = dot(L1z, 1);
+        half lumaSH = shEvaluateDiffuseL1Geomerics_local(lumaL0, half3(lumaL1x, lumaL1y, lumaL1z), normalWorld);
 
         #if (SPHERICAL_HARMONICS == SPHERICAL_HARMONICS_ZH3)
-            lumaSH = SHEvalLinearL0L1_ZH3Hallucinate(float4(lumaL0, lumaL1y, lumaL1z, lumaL1x), normalWorld);
+            lumaSH = SHEvalLinearL0L1_ZH3Hallucinate(half4(lumaL0, lumaL1y, lumaL1z, lumaL1x), normalWorld);
         #endif
 
         sh = L0 + normalWorld.x * L1x + normalWorld.y * L1y + normalWorld.z * L1z;
-        float regularLumaSH = dot(sh, 1);
+        half regularLumaSH = dot(sh, 1);
 
         sh *= lerp(1, lumaSH / regularLumaSH, saturate(regularLumaSH*16));
     #else

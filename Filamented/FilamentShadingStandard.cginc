@@ -15,17 +15,19 @@ half3 sheenLobe(const PixelParams pixel, half NoV, half NoL, half NoH) {
 
 #if defined(MATERIAL_HAS_CLEAR_COAT)
 half clearCoatLobe(const ShadingParams shading, const PixelParams pixel,
-    const half3 h, half NoH, half LoH, out half Fcc) {
+    const half3 h, half NoH, half LoH, half3 NxH, out half Fcc) {
 #if defined(MATERIAL_HAS_NORMAL) || defined(MATERIAL_HAS_CLEAR_COAT_NORMAL)
     // If the material has a normal map, we want to use the geometric normal
     // instead to avoid applying the normal map details to the clear coat layer
     half clearCoatNoH = saturate(dot(shading.clearCoatNormal, h));
+    half3 clearCoatNxH = cross(shading.clearCoatNormal, h);
 #else
     half clearCoatNoH = NoH;
+    half3 clearCoatNxH = NxH;
 #endif
 
     // clear coat specular lobe
-    half D = distributionClearCoat(pixel.clearCoatRoughness, clearCoatNoH, h);
+    half D = distributionClearCoat(pixel.clearCoatRoughness, clearCoatNoH, clearCoatNxH, h);
     half V = visibilityClearCoat(LoH);
     half F = F_Schlick(0.04, 1.0, LoH) * pixel.clearCoat; // fix IOR to 1.5
 
@@ -66,21 +68,25 @@ half3 anisotropicLobe(const ShadingParams shading, const PixelParams pixel, cons
 #endif
 
 half3 isotropicLobe(const PixelParams pixel, const Light light, const half3 h,
-        half NoV, half NoL, half NoH, half LoH) {
+        half NoV, half NoL, half NoH, half LoH, half3 NxH) {
 
-        half D = distribution(pixel.roughness, NoH, h);
-        half V = visibility(pixel.roughness, NoV, NoL);
-        half3  F = fresnel(pixel.f0, LoH);
+    half   D = distribution(pixel.roughness, NoH, NxH, h);
+    half   V = visibility(pixel.roughness, NoV, NoL);
+#if defined(MATERIAL_HAS_SPECULAR_COLOR_FACTOR) || defined(MATERIAL_HAS_SPECULAR_FACTOR)
+    half3  F = fresnel(pixel.f0, pixel.f90, LoH);
+#else
+    half3  F = fresnel(pixel.f0, LoH);
+#endif
 
     return (D * V) * F;
 }
 
 half3 specularLobe(const ShadingParams shading, const PixelParams pixel, const Light light,
-    const half3 h, half NoV, half NoL, half NoH, half LoH) {
+    const half3 h, half NoV, half NoL, half NoH, half LoH, half3 NxH) {
 #if defined(MATERIAL_HAS_ANISOTROPY)
     return anisotropicLobe(shading, pixel, light, h, NoV, NoL, NoH, LoH);
 #else
-    return isotropicLobe(pixel, light, h, NoV, NoL, NoH, LoH);
+    return isotropicLobe(pixel, light, h, NoV, NoL, NoH, LoH, NxH);
 #endif
 }
 
@@ -108,17 +114,18 @@ half3 diffuseLobe(const PixelParams pixel, half NoV, half NoL, half LoH) {
 half3 surfaceShading(const ShadingParams shading, const PixelParams pixel, const Light light,
 half occlusion) {
 
-half3 h = normalize(shading.view + light.l);
+    half3 h = normalize(shading.view + light.l);
 
-half NoV = shading.NoV;
-half NoL = saturate(light.NoL);
-half NoH = saturate(dot(shading.normal, h));
-half LoH = saturate(dot(light.l, h));
+    half NoV = shading.NoV;
+    half NoL = saturate(light.NoL);
+    half NoH = saturate(dot(shading.normal, h));
+    half LoH = saturate(dot(light.l, h));
+    half3 NxH = cross(shading.normal, h);
 
     // Note: For Unity, specular and diffuse terms must be multiplied by Pi
     // to match the light intensities of other shaders.
     // This is partly because the diffuse term is already divided by Pi here.
-    half3 Fr = specularLobe(shading, pixel, light, h, NoV, NoL, NoH, LoH) * PI;
+    half3 Fr = specularLobe(shading, pixel, light, h, NoV, NoL, NoH, LoH, NxH) * PI;
     half3 Fd = diffuseLobe(pixel, NoV, NoL, LoH) * PI;
 
     // Unity toggle for disabling specular highlights.
@@ -143,7 +150,7 @@ half LoH = saturate(dot(light.l, h));
 
 #if defined(MATERIAL_HAS_CLEAR_COAT)
     half Fcc;
-    half clearCoat = clearCoatLobe(shading, pixel, h, NoH, LoH, Fcc);
+    half clearCoat = clearCoatLobe(shading, pixel, h, NoH, LoH, NxH, Fcc);
     half attenuation = 1.0 - Fcc;
 
 #if defined(MATERIAL_HAS_NORMAL) || defined(MATERIAL_HAS_CLEAR_COAT_NORMAL)
