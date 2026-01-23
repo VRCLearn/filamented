@@ -114,7 +114,7 @@ struct VertexInput
     #endif
 #else
 #if defined(HAS_ATTRIBUTE_COLOR)
-    float4 color    : COLOR;
+    half4 color    : COLOR;
 #endif
 #endif
     UNITY_VERTEX_INPUT_INSTANCE_ID
