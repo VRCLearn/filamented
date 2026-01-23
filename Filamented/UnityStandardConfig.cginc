@@ -17,16 +17,10 @@
 #define TARGET_MOBILE
 #endif
 
-// Forces mobile quality on PC for testing.
-// #define FILAMENTED_USE_16BIT_ON_PC
-
-#ifdef FILAMENTED_USE_16BIT_ON_PC
-#define TARGET_MOBILE
-#define half min16float
-#define half2 min16float2
-#define half3 min16float3
-#define half4 min16float4
-#endif
+// On mobile, 'half' data types are half-precision, but other platforms upgrade them
+// to full-precision. Setting this will enable half-precision on other platforms, as well.
+// Using half-precision will boost performance, but some visual artifacts may appear.
+// #define FILAMENTED_USE_HALF_FLOAT
 
 #if !defined(SPECULAR_AMBIENT_OCCLUSION)
 #define SPECULAR_AMBIENT_OCCLUSION SPECULAR_AO_BENT_NORMALS
@@ -66,6 +60,24 @@
 // Then, set the default texture on the .shader in Unity
 // and it will propagate to all materials.
 // #define USE_DFG_LUT
+
+// When this flag is enabled, the half data types are set to use flexible precision.
+#if defined(FILAMENTED_USE_HALF_FLOAT) && (defined(UNITY_COMPILER_HLSL) || defined(UNITY_COMPILER_DXC))
+#define half min16float
+#define half2 min16float2
+#define half3 min16float3
+#define half4 min16float4
+#define half2x2 min16float2x2
+#define half3x3 min16float3x3
+#define half4x4 min16float4x4
+#define half2x3 min16float2x3
+#define half2x4 min16float2x4
+#define half3x2 min16float3x2
+#define half3x4 min16float3x4
+#define half4x2 min16float4x2
+#define half4x3 min16float4x3
+#define TARGET_MOBILE // Require fp16 optimizations
+#endif
 
 // Filament cross-compatibility defines
 
