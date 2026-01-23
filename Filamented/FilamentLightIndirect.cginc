@@ -573,7 +573,7 @@ half3 Unity_GlossyEnvironment_local (UNITY_ARGS_TEXCUBE(tex), half4 hdr, Unity_G
 
     // Workaround for issue where objects are blurrier than they should be
     // due to specular AA.
-    #if !defined(TARGET_MOBILE) && defined(GEOMETRIC_SPECULAR_AA)
+    #if defined(GEOMETRIC_SPECULAR_AA)
     half roughnessAdjustment = 1-perceptualRoughness;
     roughnessAdjustment = MIN_PERCEPTUAL_ROUGHNESS * roughnessAdjustment * roughnessAdjustment;
     perceptualRoughness = perceptualRoughness - roughnessAdjustment;
