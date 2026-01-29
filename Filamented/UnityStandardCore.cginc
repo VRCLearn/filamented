@@ -8,7 +8,7 @@
 #include "UnityLightingCommon.cginc"
 
 // Workaround for some failsafes
-#define UNITY_BRDF_PBS 
+#define UNITY_BRDF_PBS
 
 #include "FilamentMaterialInputs.cginc"
 #include "FilamentCommonMath.cginc"
@@ -153,7 +153,7 @@ void GetBakedAttenuation(inout float atten, float2 lightmapUV, float3 worldPos)
 #if defined(SHADING_MODEL_CLOTH)
     #define SETUP_BRDF_INPUT ClothMaterialSetup
 inline MaterialInputs ClothMaterialSetup (float4 i_tex)
-{   
+{
     half4 baseColor = half4(Albedo(i_tex), Alpha(i_tex));
     half4 specGloss = SheenColorGlossCloth(i_tex.xy);
     half3 specColor = specGloss.rgb;
@@ -174,7 +174,7 @@ inline MaterialInputs ClothMaterialSetup (float4 i_tex)
 #if defined(SHADING_MODEL_METALLIC_ROUGHNESS)
     #define SETUP_BRDF_INPUT RoughnessMaterialSetup
 inline MaterialInputs RoughnessMaterialSetup (float4 i_tex)
-{   
+{
     half4 baseColor = half4(Albedo(i_tex), Alpha(i_tex));
     half2 metallicGloss = MetallicRough(i_tex.xy);
     half metallic = metallicGloss.x;
@@ -192,7 +192,7 @@ inline MaterialInputs RoughnessMaterialSetup (float4 i_tex)
 #if defined(SHADING_MODEL_SPECULAR_GLOSSINESS)
     #define SETUP_BRDF_INPUT SpecularMaterialSetup
 inline MaterialInputs SpecularMaterialSetup (float4 i_tex)
-{   
+{
     half4 baseColor = half4(Albedo(i_tex), Alpha(i_tex));
     half4 specGloss = SpecularGloss(i_tex.xy);
     half3 specColor = specGloss.rgb;
@@ -210,9 +210,9 @@ inline MaterialInputs SpecularMaterialSetup (float4 i_tex)
 #if (!defined(SHADING_MODEL_SPECULAR_GLOSSINESS))
     #define SETUP_BRDF_INPUT MetallicMaterialSetup
 inline MaterialInputs MetallicMaterialSetup (float4 i_tex)
-{   
+{
     half4 baseColor = half4(Albedo(i_tex), Alpha(i_tex));
-    half2 metallicGloss = MetallicGloss(i_tex.xy); 
+    half2 metallicGloss = MetallicGloss(i_tex.xy);
     half metallic = metallicGloss.x;
     half smoothness = metallicGloss.y; // this is 1 minus the square root of real roughness m.
 
@@ -228,12 +228,12 @@ inline MaterialInputs MetallicMaterialSetup (float4 i_tex)
 #endif
 #endif
 
-#ifndef SETUP_BRDF_INPUT 
+#ifndef SETUP_BRDF_INPUT
     #define SETUP_BRDF_INPUT NoneMaterialSetup
 #endif
 
 inline MaterialInputs NoneMaterialSetup (float4 i_tex)
-{   
+{
     MaterialInputs material = (MaterialInputs)0;
     initMaterial(material);
     return material;
@@ -329,7 +329,7 @@ struct VertexOutputForwardBase
 #if defined(_BAKERY_VERTEXLM)
     float4 color : COLOR_centroid;
     #if defined(USING_BAKERY_VERTEXLMDIR)
-        float3 lightDirection : TEXCOORD10_centroid; 
+        float3 lightDirection : TEXCOORD10_centroid;
     #elif defined(_BAKERY_SH)
         float3 shL1x : TEXCOORD10_centroid;
         float3 shL1y : TEXCOORD11_centroid;
@@ -394,7 +394,7 @@ VertexOutputForwardBase vertForwardBase (VertexInput v)
     #ifdef _PARALLAXMAP
         TANGENT_SPACE_ROTATION;
         half3 viewDirForParallax = mul (rotation, ObjSpaceViewDir(v.vertex));
-        
+
         o.tangentToWorldAndPackedData[0].w = viewDirForParallax.x;
         o.tangentToWorldAndPackedData[1].w = viewDirForParallax.y;
         o.tangentToWorldAndPackedData[2].w = viewDirForParallax.z;
@@ -506,10 +506,16 @@ half4 fragForwardBaseInternal (VertexOutputForwardBase i, bool gl_FrontFacing)
 
     prepareMaterial(shading, material);
 
-#if (defined(_NORMALMAP) && defined(NORMALMAP_SHADOW))
+#if ((defined(_NORMALMAP) || defined(_PARALLAXMAP)) && defined(NORMALMAP_SHADOW))
     float noise = noiseR2(i.pos.xy);
-    float nmShade = NormalTangentShadow (i.tex, i.lightDirTS, noise);
-    shading.attenuation = min(shading.attenuation, max(1-nmShade, 0));
+    #if defined(_PARALLAXMAP)
+        PerPixelHeightDisplacementParam ppd = InitPerPixelHeightDisplacementParam(i.tex.xy);
+        float hShadow = GetParallaxSelfShadow(i.lightDirTS, i.tex.xy, ppd, noise);
+        shading.attenuation = min(shading.attenuation, hShadow);
+    #else
+        float nmShade = NormalTangentShadow (i.tex, i.lightDirTS, noise);
+        shading.attenuation = min(shading.attenuation, max(1-nmShade, 0));
+    #endif
 #endif
 
     float4 c = evaluateMaterial (shading, material);
@@ -545,7 +551,7 @@ struct VertexOutputForwardAdd
     float3 lightDirTS                   : TEXCOORD9;
 #endif
 
-    // If Bakery LM mode is active, vertex colour is base lightmap. 
+    // If Bakery LM mode is active, vertex colour is base lightmap.
 #if defined(USING_BAKERY_VERTEXLMMASK)
     fixed4 shadowMask                   : COLOR_centroid;
 #else
@@ -665,14 +671,20 @@ half4 fragForwardAddInternal (VertexOutputForwardAdd i, bool gl_FrontFacing)
 
     prepareMaterial(shading, material);
 
-#if (defined(_NORMALMAP) && defined(NORMALMAP_SHADOW))
+#if ((defined(_NORMALMAP) || defined(_PARALLAXMAP)) && defined(NORMALMAP_SHADOW))
     float noise = noiseR2(i.pos.xy);
-    float nmShade = NormalTangentShadow (i.tex, i.lightDirTS, noise);
-    shading.attenuation = min(shading.attenuation, max(1-nmShade, 0));
+    #if defined(_PARALLAXMAP)
+        PerPixelHeightDisplacementParam ppd = InitPerPixelHeightDisplacementParam(i.tex.xy);
+        float hShadow = GetParallaxSelfShadow(i.lightDirTS, i.tex.xy, ppd, noise);
+        shading.attenuation = min(shading.attenuation, hShadow);
+    #else
+        float nmShade = NormalTangentShadow (i.tex, i.lightDirTS, noise);
+        shading.attenuation = min(shading.attenuation, max(1-nmShade, 0));
+    #endif
 #endif
 
     float4 c = evaluateMaterial (shading, material);
-    
+
     UNITY_EXTRACT_FOG_FROM_EYE_VEC(i);
     UNITY_APPLY_FOG_COLOR(_unity_fogCoord, c.rgb, half4(0,0,0,0)); // fog towards black in additive pass
     return c;

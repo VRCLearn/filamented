@@ -347,13 +347,13 @@ struct VertexInput
             // Disable parallax on pre-SM3.0 shader target models
             return texcoords;
         #else
+        PerPixelHeightDisplacementParam ppd = InitPerPixelHeightDisplacementParam(texcoords.xy);
         #if (PARALLAX_OPERATOR == PARALLAX_ONESTEP)
             half h = tex2D (_ParallaxMap, texcoords.xy).g;
             float2 offset = ParallaxOffset1Step (h, _Parallax, viewDir);
             return float4(texcoords.xy + offset, texcoords.zw + offset);
         #endif
         #if (PARALLAX_OPERATOR == PARALLAX_RAYMARCH)
-            PerPixelHeightDisplacementParam ppd = InitPerPixelHeightDisplacementParam(texcoords.xy);
             float height = 1.0;
             viewDir = normalize(viewDir);
             viewDir.xy /= (viewDir.z + 0.42);
@@ -361,12 +361,10 @@ struct VertexInput
             return float4(texcoords.xy + offset, texcoords.zw + offset);
         #endif
         #if (PARALLAX_OPERATOR == PARALLAX_RAYMARCH_DYNAMIC)
-            PerPixelHeightDisplacementParam ppd = InitPerPixelHeightDisplacementParam(texcoords.xy);
             float2 offset = ParallaxRaymarchingDynamic(viewDir, ppd, _Parallax, lod);
             return float4(texcoords.xy + offset, texcoords.zw + offset);
         #endif
         #if (PARALLAX_OPERATOR == PARALLAX_RAYMARCH_DYNAMIC_OFFSET)
-            PerPixelHeightDisplacementParam ppd = InitPerPixelHeightDisplacementParam(texcoords.xy);
             float2 offset = ParallaxRaymarchingDynamicOffset(viewDir, ppd, _Parallax, lod);
             return float4(texcoords.xy + offset, texcoords.zw + offset);
         #endif
