@@ -1,13 +1,13 @@
 /*
 Filamented example template.
-*/ 
+*/
 Shader "Silent/Filamented Extras/Filamented Selector"
 {
     Properties
     {
         [CheckDFGTexture]
         [BlendModeSelector(_SrcBlend, _DstBlend, _CustomRenderQueue, _ZWrite, _AtoCmode)] _Mode ("__mode", Float) = 0.0
-        [KeywordEnum(Standard,Cloth)]_Shading("Shading Type", Float) = 0
+        [KeywordEnum(Standard,Cloth,Anisotropy,Glint,Subsurface)]_Shading("Shading Type", Float) = 0
         [HeaderEx(Base Material)]
         [ScaleOffset][SingleLine(_Color)]_MainTex("Albedo", 2D) = "white" {}
         [HideInInspector]_Color("Color", Color) = (1,1,1,1)
@@ -30,6 +30,20 @@ Shader "Silent/Filamented Extras/Filamented Selector"
         _Emission("Emission Power", Float) = 0
         _EmissionColor("Emission Tint", Color) = (1,1,1,1)
         [Space]
+        [IfDef(_SHADING_ANISOTROPY)][HeaderEx(Anisotropy Properties)]
+        _Anisotropy("Anisotropy", Range(-1, 1)) = 0.5
+        [IfDef(_SHADING_ANISOTROPY)][Normal][SingleLine]
+        _AnisotropyDirectionMap("Direction Map", 2D) = "bump" {}
+        [IfDef(_SHADING_GLINT)][HeaderEx(Glint Properties)]
+        _SpecularGlintSize("Glint Size", Range(0, 1)) = 0.5
+        [IfDef(_SHADING_GLINT)]
+        _SpecularGlintDensity("Glint Density", Range(0, 1)) = 0.5
+        [IfDef(_SHADING_SUBSURFACE)][HeaderEx(Subsurface Properties)]
+        [SingleLine][NoScaleOffset]_ThicknessMap("Thickness Map", 2D) = "white" {}
+        [IfDef(_SHADING_SUBSURFACE)]_ThicknessScale("Thickness", Range(0, 1)) = 0.5
+        [IfDef(_SHADING_SUBSURFACE)]_SubsurfacePower("Subsurface Power", Float) = 12.234
+        [IfDef(_SHADING_SUBSURFACE)]_SubsurfaceColor("Subsurface Color", Color) = (1.0, 1.0, 1.0, 1.0)
+        [Space]
         [HeaderEx(Emission Texture)]
         [NoScaleOffset][SetKeywordSingleLine(_ADD_EMISSION)]_EmissionMap("Emission Map", 2D) = "black" {}
         _EmissionMapPower("Emission Map Intensity", Float) = 1.0
@@ -42,7 +56,7 @@ Shader "Silent/Filamented Extras/Filamented Selector"
         [SingleLine]_MOESMapDetail("Property Map Detail", 2D) = "white" {}
         [Space]
         [Toggle(_DTRIPLANAR)]_UseDTriplanar("Triplanar Detail", Float) = 0.0
-        _TriplanarSharp("Blending Sharpness", Range(1, 10)) = 3
+        [IfDef(_DTRIPLANAR)]_TriplanarSharp("Blending Sharpness", Range(1, 10)) = 3
 		[IfDef(_DTRIPLANAR)]_TriplanarTiles0x ("X Axis Tiling", float) = 1
 		[IfDef(_DTRIPLANAR)]_TriplanarTiles0y ("Y Axis Tiling", float) = 1
 		[IfDef(_DTRIPLANAR)]_TriplanarTiles0z ("X Axis Tiling", float) = 1
@@ -68,7 +82,7 @@ Shader "Silent/Filamented Extras/Filamented Selector"
         [Enum(UnityEngine.Rendering.CullMode)]_CullMode("Cull Mode", Int) = 2
 
         [NonModifiableTextureData][HideInInspector] _DFG("DFG", 2D) = "white" {}
-        
+
         // Blending state
         [HideInInspector] _SrcBlend ("__src", Float) = 1.0
         [HideInInspector] _DstBlend ("__dst", Float) = 0.0
@@ -80,23 +94,32 @@ Shader "Silent/Filamented Extras/Filamented Selector"
     CustomEditor "Silent.FilamentedExtras.Unity.FilamentedExtrasInspector"
 
     CGINCLUDE
-        #pragma multi_compile_local _ _DTRIPLANAR
-        #pragma multi_compile_local _ _ADD_EMISSION
-        #pragma multi_compile_local _SHADING_STANDARD _SHADING_CLOTH
+        #pragma shader_feature_local_fragment _ _DTRIPLANAR
+        #pragma shader_feature_local_fragment _ _ADD_EMISSION
+        #pragma shader_feature_local_fragment _SHADING_STANDARD _SHADING_CLOTH _SHADING_ANISOTROPY _SHADING_GLINT _SHADING_SUBSURFACE
 
         #pragma skip_variants _METALLICGLOSSMAP _NORMALMAP _EMISSION
 
-    	// First, setup what Filamented does. 
+    	// First, setup what Filamented does.
     	// Filamented's behaviour is decided by the shading model and what material properties are defined.
     	// These are listed in FilamentMaterialInputs.
     	// You can set up and use anything in the initMaterials function.
 
-		// SHADING_MODEL_SUBSURFACE
-    	// These are *not* currently supported.
-
         #if defined(_SHADING_CLOTH)
             #define SHADING_MODEL_CLOTH
             #define MATERIAL_HAS_SHEEN_COLOR
+        #endif
+
+        #if defined(_SHADING_ANISOTROPY)
+            #define MATERIAL_HAS_ANISOTROPY
+        #endif
+
+        #if defined(_SHADING_GLINT)
+            #define MATERIAL_HAS_GLINT
+        #endif
+
+        #if defined(_SHADING_SUBSURFACE)
+            #define SHADING_MODEL_SUBSURFACE
         #endif
 
     	// SHADING_MODEL_SPECULAR_GLOSSINESS
@@ -114,7 +137,7 @@ Shader "Silent/Filamented Extras/Filamented Selector"
     	// MATERIAL_HAS_ANISOTROPY
     	// If this is set, the material will support anisotropy.
 
-    	// MATERIAL_HAS_CLEAR_COAT 
+    	// MATERIAL_HAS_CLEAR_COAT
     	// If this is set, the material will support clear coat.
 
         // HAS_ATTRIBUTE_COLOR
@@ -134,10 +157,10 @@ Shader "Silent/Filamented Extras/Filamented Selector"
     #include "Packages/s-ilent.filamented/Filamented/UnityStandardConfig.cginc"
     #include "Packages/s-ilent.filamented/Filamented/UnityStandardCore.cginc"
 	// Note: Unfortunately, Input is still needed due to some interdependancies with other Unity files.
-	// This means that some properties will always be defined, even if they aren't used. 
+	// This means that some properties will always be defined, even if they aren't used.
 	// In practise, this won't affect the final compilation, but it means you'll need to watch out for the names
 	// of some common parameters. In this case, only MOESMap and some other properties are defined here because
-	// they are already defined in Input. 
+	// they are already defined in Input.
 
     // uniform sampler2D _MainTex;
     // uniform sampler2D _BumpMap;
@@ -181,6 +204,23 @@ Shader "Silent/Filamented Extras/Filamented Selector"
 
     uniform half _EmissionFluro;
 
+    #ifdef _SHADING_ANISOTROPY
+    uniform half _Anisotropy;
+    uniform sampler2D _AnisotropyDirectionMap;
+    #endif
+
+    #ifdef _SHADING_GLINT
+    uniform half _SpecularGlintSize;
+    uniform half _SpecularGlintDensity;
+    #endif
+
+    #ifdef _SHADING_SUBSURFACE
+    uniform sampler2D _ThicknessMap;
+    uniform half _ThicknessScale;
+    uniform half _SubsurfacePower;
+    uniform half4 _SubsurfaceColor;
+    #endif
+
 	// Vertex functions are called from UnityStandardCore.
 	// You can alter values here, or copy the function in and modify it.
 	VertexOutputForwardBase vertBase (VertexInput v) { return vertForwardBase(v); }
@@ -201,7 +241,7 @@ float4 boxmap(sampler2D tex, float3 p, float3 n, float k )
     if (m.y > 0) y = tex2Dgrad( tex, p.zx, dpdx.zx, dpdy.zx );
     float4 z = 0.0;
     if (m.z > 0) z = tex2Dgrad( tex, p.xy, dpdx.xy, dpdy.xy );
-    
+
     // and blend
     return (x*m.x + y*m.y + z*m.z) / (m.x + m.y + m.z);
 }
@@ -235,10 +275,10 @@ inline float EmissionFluro(float NdotV)
     return lerp(1.0 - _EmissionFluro, 1.0, fluroBase);
 }
 
-	// The material function itself!  You can alter the code below to add extra properties. 
-inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half3 i_viewDirForParallax, 
+	// The material function itself!  You can alter the code below to add extra properties.
+inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half3 i_viewDirForParallax,
     float4 tangentToWorld[3], float3 i_posWorld)
-{   
+{
     half4 baseColor = tex2D (_MainTex, i_tex.xy) * _Color;
     half4 packedMap = tex2D (_MOESMap, i_tex.xy);
     half3 normalTangent = UnpackScaleNormal(tex2D (_BumpMap, i_tex.xy), _BumpScale);
@@ -264,8 +304,8 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     half metallic = packedMap[_MetallicSelect] * _MetallicScale;
     half occlusion = lerp(1, packedMap[_OcclusionSelect], _OcclusionScale);
     half emissionMask = packedMap[_EmissionSelect];
-    half smoothness = packedMap[_SmoothnessSelect] * _SmoothnessScale; 
-    
+    half smoothness = packedMap[_SmoothnessSelect] * _SmoothnessScale;
+
     half3 emission = baseColor.rgb * emissionMask * _Emission * _EmissionColor;
 
     #if defined(_ADD_EMISSION)
@@ -286,6 +326,28 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     material.emissive.rgb = emission;
     material.emissive.a = 1.0;
     material.ambientOcclusion = occlusion;
+
+
+    #if defined(_SHADING_ANISOTROPY)
+    material.anisotropy = _Anisotropy;
+    material.anisotropyDirection = UnpackNormal(tex2D(_AnisotropyDirectionMap, i_tex.xy));
+    #endif
+
+    #if defined(_SHADING_GLINT)
+    half internal_glint_alpha = lerp(0.001, 0.1, _SpecularGlintSize * _SpecularGlintSize);
+    half internal_density = pow(10.0, lerp(3.0, 9.0, _SpecularGlintDensity));
+
+    material.uv = i_tex.xy;
+    material.glintAlpha = internal_glint_alpha;
+    material.glintDensity = internal_density;
+    #endif
+
+    #if defined(_SHADING_SUBSURFACE)
+    material.thickness = tex2D(_ThicknessMap, i_tex.xy).r * _ThicknessScale;
+    material.subsurfacePower = _SubsurfacePower;
+    material.subsurfaceColor = _SubsurfaceColor.rgb;
+    #endif
+
     return material;
 }
 
@@ -360,7 +422,7 @@ half4 fragForwardAddTemplate (VertexOutputForwardAdd i)
 
 half4 fragBase (VertexOutputForwardBase i) : SV_Target { return fragForwardBaseTemplate(i); }
 half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemplate(i); }
-    #endif 
+    #endif
 
     ENDCG
 
@@ -386,15 +448,15 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
 
             // -------------------------------------
 
-            #pragma shader_feature_local _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
-            #pragma shader_feature_local _SPECULARHIGHLIGHTS_OFF
-            #pragma shader_feature_local _GLOSSYREFLECTIONS_OFF
-            #pragma shader_feature_local _LIGHTMAPSPECULAR
-            
-            #pragma shader_feature_local _ _BAKERY_RNM _BAKERY_SH _BAKERY_MONOSH
-            #pragma shader_feature_local _LTCGI
-            #pragma shader_feature_local _VRCLV
-            #pragma shader_feature_local _LIGHTMAPSPECULAR
+            #pragma shader_feature_local_fragment _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
+            #pragma shader_feature_local_fragment _SPECULARHIGHLIGHTS_OFF
+            #pragma shader_feature_local_fragment _GLOSSYREFLECTIONS_OFF
+            #pragma shader_feature_local_fragment _LIGHTMAPSPECULAR
+
+            #pragma shader_feature_local_fragment _ _BAKERY_RNM _BAKERY_SH _BAKERY_MONOSH
+            #pragma shader_feature_local_fragment _LTCGI
+            #pragma shader_feature_local_fragment _VRCLV
+            #pragma shader_feature_local_fragment _LIGHTMAPSPECULAR
 
             #pragma multi_compile_fwdbase
             #pragma multi_compile_fog
@@ -428,8 +490,8 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             // -------------------------------------
 
 
-            #pragma shader_feature_local _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
-            #pragma shader_feature_local _SPECULARHIGHLIGHTS_OFF
+            #pragma shader_feature_local_fragment _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
+            #pragma shader_feature_local_fragment _SPECULARHIGHLIGHTS_OFF
 
             #pragma multi_compile_fwdadd_fullshadows
             #pragma multi_compile_fog
@@ -441,7 +503,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
 
             ENDCG
         }
-        
+
         // ------------------------------------------------------------------
         //  Shadow rendering pass
         Pass {
@@ -459,8 +521,9 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
 
             #ifndef UNITY_PASS_SHADOWCASTER
             #define UNITY_PASS_SHADOWCASTER
-            #endif  
+            #endif
 
+            // Must be in vertex stage to pass UVs.
             #pragma shader_feature_local _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
             #pragma multi_compile_shadowcaster
             #pragma multi_compile_instancing
@@ -474,14 +537,14 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
 
             ENDCG
         }
-        
+
         Pass
         {
             Name "META"
             Tags {"LightMode"="Meta"}
             Cull Off
             CGPROGRAM
-            
+
             #define REQUIRE_META_WORLDPOS
 
             #include "Packages/s-ilent.filamented/Filamented/UnityStandardMeta.cginc"
@@ -493,7 +556,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
                 MaterialInputs material = SETUP_BRDF_INPUT (i.uv);
                 float4 dummy[3]; dummy[0] = 1; dummy[1] = 0; dummy[2] = i.worldPos;
                 material = MyMaterialSetup (i.uv, 0, 0, dummy, i.worldPos);
-                
+
                 PixelParams pixel = (PixelParams)0;
                 getCommonPixelParams(material, pixel);
 
