@@ -57,13 +57,6 @@ Shader "Silent/Filamented Extras/Filamented Glinty"
     	// These are listed in FilamentMaterialInputs.
     	// You can set up and use anything in the initMaterials function.
 
-		// SHADING_MODEL_CLOTH
-		// SHADING_MODEL_SUBSURFACE
-    	// These are *not* currently supported.
-
-    	// SHADING_MODEL_SPECULAR_GLOSSINESS
-    	// If this is not defined, the material will default to metallic/roughness workflow.
-
     	#define MATERIAL_HAS_NORMAL
     	// If this is not defined, normal maps won't be enabled.
 
@@ -77,9 +70,8 @@ Shader "Silent/Filamented Extras/Filamented Glinty"
     	// If this is set, the material will support anisotropy.
 
         #if defined(_USE_CLEARCOAT)
-    	#define MATERIAL_HAS_CLEAR_COAT
+       	    #define MATERIAL_HAS_CLEAR_COAT
         #endif
-    	// If this is set, the material will support clear coat.
 
         // HAS_ATTRIBUTE_COLOR
         // If this is not defined, vertex colour will not be available.

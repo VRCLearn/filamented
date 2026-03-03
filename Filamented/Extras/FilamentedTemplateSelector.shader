@@ -47,6 +47,7 @@ Shader "Silent/Filamented Extras/Filamented Selector"
         [HeaderEx(Emission Texture)]
         [NoScaleOffset][SetKeywordSingleLine(_ADD_EMISSION)]_EmissionMap("Emission Map", 2D) = "black" {}
         _EmissionMapPower("Emission Map Intensity", Float) = 1.0
+        [Space]
         [HeaderEx(Details)]
         _DetailBlendWeight("Blend Weight", Range(0, 1)) = 1
         [HideInInspector][Enum(Multiply2x, 0, Multiply, 1, Additive, 2, AlphaBlend, 3)]_DetailBlendMode("Blend Mode", Float) = 0.0
@@ -65,6 +66,17 @@ Shader "Silent/Filamented Extras/Filamented Selector"
 		[IfDef(_DTRIPLANAR)]_TriplanarOffset0z ("X Axis Offset", float) = 0
         [Space]
         _EmissionFluro("Emission Edge Fade Intensity", Range(0, 1)) = 0.0
+        [Space]
+        [SingleLine]_IridescenceRamp("Specular Iridescence Ramp", 2D) = "white" {}
+        _IridescenceAmount("Iridescence Amount", Range(0, 1)) = 0
+        [Space]
+        [SingleLine]_WetnessMap("Wetness Mask (R)", 2D) = "white" {}
+        _WetnessAmount("Wetness Amount", Range(0, 1)) = 0.0
+        [Space]
+        [Toggle(_USE_CLEARCOAT)]_ClearCoatMode("Clear Coat", Float) = 0
+        [IfDef(_USE_CLEARCOAT)][SingleLine]_ClearCoatMap("Clear Coat Map (R: Intensity, G: Roughness)", 2D) = "white" {}
+        [IfDef(_USE_CLEARCOAT)]_ClearCoat("Clear Coat Intensity", Range(0, 1)) = 0.0
+        [IfDef(_USE_CLEARCOAT)]_ClearCoatRoughness("Clear Coat Roughness", Range(0, 1)) = 0.0
         [Space]
         [HeaderEx(System)]
         [Toggle(_LIGHTMAPSPECULAR)]_LightmapSpecular("Lightmap Specular", Range(0, 1)) = 1
@@ -97,6 +109,7 @@ Shader "Silent/Filamented Extras/Filamented Selector"
         #pragma shader_feature_local_fragment _ _DTRIPLANAR
         #pragma shader_feature_local_fragment _ _ADD_EMISSION
         #pragma shader_feature_local_fragment _SHADING_STANDARD _SHADING_CLOTH _SHADING_ANISOTROPY _SHADING_GLINT _SHADING_SUBSURFACE
+        #pragma shader_feature_local_fragment _ _USE_CLEARCOAT
 
         #pragma skip_variants _METALLICGLOSSMAP _NORMALMAP _EMISSION
 
@@ -122,8 +135,13 @@ Shader "Silent/Filamented Extras/Filamented Selector"
             #define SHADING_MODEL_SUBSURFACE
         #endif
 
-    	// SHADING_MODEL_SPECULAR_GLOSSINESS
+        #if defined(_USE_CLEARCOAT)
+       	    #define MATERIAL_HAS_CLEAR_COAT
+        #endif
+
+    	#define SHADING_MODEL_SPECULAR_GLOSSINESS
     	// If this is not defined, the material will default to metallic/roughness workflow.
+        // This is used to control the specular colour for iridescence.
 
     	#define MATERIAL_HAS_NORMAL
     	// If this is not defined, normal maps won't be enabled.
@@ -133,12 +151,6 @@ Shader "Silent/Filamented Extras/Filamented Selector"
 
     	#define MATERIAL_HAS_EMISSIVE
     	// If this is not defined, emission won't be taken into account
-
-    	// MATERIAL_HAS_ANISOTROPY
-    	// If this is set, the material will support anisotropy.
-
-    	// MATERIAL_HAS_CLEAR_COAT
-    	// If this is set, the material will support clear coat.
 
         // HAS_ATTRIBUTE_COLOR
         // If this is not defined, vertex colour will not be available.
@@ -221,6 +233,19 @@ Shader "Silent/Filamented Extras/Filamented Selector"
     uniform half4 _SubsurfaceColor;
     #endif
 
+    uniform sampler2D _IridescenceRamp;
+    uniform half4 _IridescenceRamp_TexelSize;
+    uniform half _IridescenceAmount;
+
+    uniform sampler2D _WetnessMap;
+    uniform half _WetnessAmount;
+
+    #if defined(_USE_CLEARCOAT)
+    uniform sampler2D _ClearCoatMap;
+    uniform half _ClearCoat;
+    uniform half _ClearCoatRoughness;
+    #endif
+
 	// Vertex functions are called from UnityStandardCore.
 	// You can alter values here, or copy the function in and modify it.
 	VertexOutputForwardBase vertBase (VertexInput v) { return vertForwardBase(v); }
@@ -275,8 +300,19 @@ inline float EmissionFluro(float NdotV)
     return lerp(1.0 - _EmissionFluro, 1.0, fluroBase);
 }
 
+half4 SampleIridescence(half NoV, half rampID)
+{
+	if (any(_IridescenceRamp_TexelSize.zw > 6.0))
+	{
+		half rampIDUV = (1.0 - (floor(rampID * _IridescenceRamp_TexelSize.w) + 0.5) * _IridescenceRamp_TexelSize.y);
+		half2 rampUV = float2(NoV, rampIDUV);
+		return tex2D(_IridescenceRamp, rampUV);
+	}
+	return 1.0;
+}
+
 	// The material function itself!  You can alter the code below to add extra properties.
-inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half3 i_viewDirForParallax,
+inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half i_NoV, half3 i_viewDirForParallax,
     float4 tangentToWorld[3], float3 i_posWorld)
 {
     half4 baseColor = tex2D (_MainTex, i_tex.xy) * _Color;
@@ -306,6 +342,8 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     half emissionMask = packedMap[_EmissionSelect];
     half smoothness = packedMap[_SmoothnessSelect] * _SmoothnessScale;
 
+    smoothness = (_SmoothnessMode == 0) ? smoothness : 1.0 - smoothness;
+
     half3 emission = baseColor.rgb * emissionMask * _Emission * _EmissionColor;
 
     #if defined(_ADD_EMISSION)
@@ -313,24 +351,59 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     emission += emissionMap * _EmissionMapPower;
     #endif
 
+    half anisotropy; half3 anisotropyDir;
+    #if defined(_SHADING_ANISOTROPY)
+    anisotropy = _Anisotropy;
+    anisotropyDir = UnpackNormal(tex2D(_AnisotropyDirectionMap, i_tex.xy));
+    #endif
+
+    half clearCoat, clearCoatRoughness;
+    #if defined(_USE_CLEARCOAT)
+    half4 ccMap = tex2D(_ClearCoatMap, i_tex.xy);
+    clearCoat = ccMap.r * _ClearCoat;
+    clearCoatRoughness = ccMap.g * _ClearCoatRoughness;
+    #endif
+
+    if (_WetnessAmount > 0)
+    {
+        half wetness = tex2D(_WetnessMap, i_tex.xy).r * _WetnessAmount;
+        half porosity = saturate((1.0 - metallic) * (1.0 - smoothness));
+        half waterDarken = wetness * porosity;
+
+        // Darken and slightly saturate porous surfaces
+        baseColor.rgb = lerp(baseColor.rgb, baseColor.rgb * baseColor.rgb, waterDarken * 0.5);
+        baseColor.rgb *= lerp(1.0, 0.2, waterDarken);
+        normalTangent = lerp(normalTangent, half3(0, 0, 1), wetness);
+        smoothness = lerp(smoothness, 0.95, wetness);
+
+        anisotropy = lerp(anisotropy, 0.0, wetness);
+        anisotropyDir = lerp(anisotropyDir, half3(0, 0, 1), wetness);
+
+        clearCoat = lerp(clearCoat, 1.0, wetness);
+        clearCoatRoughness = lerp(clearCoatRoughness, 0.05, wetness);
+    }
+
+    half3 specColor;
+    half oneMinusReflectivity;
+    half3 diffColor = DiffuseAndSpecularFromMetallic(baseColor.rgb, metallic, specColor, oneMinusReflectivity);
+
     MaterialInputs material = (MaterialInputs)0;
     initMaterial(material);
-    material.baseColor = baseColor;
+    material.baseColor = half4(diffColor, 1.0h);
     #if defined(_SHADING_CLOTH)
     material.sheenColor = lerp(baseColor*baseColor, sqrt(baseColor), metallic);
     #else
-    material.metallic = metallic;
+    material.specularColor = specColor;
     #endif
-    material.roughness = (_SmoothnessMode == 1) ? smoothness : computeRoughnessFromGlossiness(smoothness);
+    material.glossiness = smoothness;
     material.normal = normalTangent;
     material.emissive.rgb = emission;
     material.emissive.a = 1.0;
     material.ambientOcclusion = occlusion;
 
-
     #if defined(_SHADING_ANISOTROPY)
-    material.anisotropy = _Anisotropy;
-    material.anisotropyDirection = UnpackNormal(tex2D(_AnisotropyDirectionMap, i_tex.xy));
+    material.anisotropy = anisotropy;
+    material.anisotropyDirection = anisotropyDir;
     #endif
 
     #if defined(_SHADING_GLINT)
@@ -346,6 +419,11 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     material.thickness = tex2D(_ThicknessMap, i_tex.xy).r * _ThicknessScale;
     material.subsurfacePower = _SubsurfacePower;
     material.subsurfaceColor = _SubsurfaceColor.rgb;
+    #endif
+
+    #if defined(_USE_CLEARCOAT)
+    material.clearCoat = clearCoat;
+    material.clearCoatRoughness = clearCoatRoughness;
     #endif
 
     return material;
@@ -370,11 +448,18 @@ half4 fragForwardBaseTemplate (VertexOutputForwardBase i)
 
     // Your material setup goes here.
     MaterialInputs material =
-    MyMaterialSetup(i.tex, i.eyeVec.xyz, IN_VIEWDIR4PARALLAX(i), i.tangentToWorldAndPackedData, IN_WORLDPOS(i));
+    MyMaterialSetup(i.tex, i.eyeVec.xyz, shading.NoV, IN_VIEWDIR4PARALLAX(i), i.tangentToWorldAndPackedData, IN_WORLDPOS(i));
 
     prepareMaterial(shading, material);
 
     material.emissive *= EmissionFluro(shading.NoV);
+
+    if (_IridescenceAmount > 0)
+    {
+        half4 specIridescence = lerp(half4(1.0.xxx, 0.0), SampleIridescence(shading.NoV, 0), _IridescenceAmount);
+        material.specularColor *= specIridescence.rgb;
+    	material.baseColor *= 1.0 - specIridescence.a;
+    }
 
 #if (defined(_NORMALMAP) && defined(NORMALMAP_SHADOW))
     float noise = noiseR2(i.pos.xy);
@@ -403,9 +488,16 @@ half4 fragForwardAddTemplate (VertexOutputForwardAdd i)
 
     // Your material setup goes here.
     MaterialInputs material =
-    MyMaterialSetup(i.tex, i.eyeVec.xyz, IN_VIEWDIR4PARALLAX_FWDADD(i), i.tangentToWorldAndLightDir, IN_WORLDPOS_FWDADD(i));
+    MyMaterialSetup(i.tex, i.eyeVec.xyz, shading.NoV, IN_VIEWDIR4PARALLAX_FWDADD(i), i.tangentToWorldAndLightDir, IN_WORLDPOS_FWDADD(i));
 
     prepareMaterial(shading, material);
+
+    if (_IridescenceAmount > 0)
+    {
+        half4 specIridescence = lerp(half4(1.0.xxx, 0.0), SampleIridescence(shading.NoV, 0), _IridescenceAmount);
+        material.specularColor *= specIridescence.rgb;
+    	material.baseColor *= 1.0 - specIridescence.a;
+    }
 
 #if (defined(_NORMALMAP) && defined(NORMALMAP_SHADOW))
     float noise = noiseR2(i.pos.xy);
@@ -449,9 +541,9 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             // -------------------------------------
 
             #pragma shader_feature_local_fragment _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
-            #pragma shader_feature_local_fragment _SPECULARHIGHLIGHTS_OFF
-            #pragma shader_feature_local_fragment _GLOSSYREFLECTIONS_OFF
-            #pragma shader_feature_local_fragment _LIGHTMAPSPECULAR
+            #pragma shader_feature_local_fragment _ _SPECULARHIGHLIGHTS_OFF
+            #pragma shader_feature_local_fragment _ _GLOSSYREFLECTIONS_OFF
+            #pragma shader_feature_local_fragment _ _LIGHTMAPSPECULAR
 
             #pragma shader_feature_local_fragment _ _BAKERY_RNM _BAKERY_SH _BAKERY_MONOSH
             #pragma shader_feature_local_fragment _LTCGI
