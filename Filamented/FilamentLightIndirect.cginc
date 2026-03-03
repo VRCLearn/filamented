@@ -732,7 +732,7 @@ void evaluateClothIndirectDiffuseBRDF(const ShadingParams shading, const PixelPa
 #endif
 }
 
-void evaluateSheenIBL(const ShadingParams shading, const PixelParams pixel,
+void evaluateSheenIBL(const ShadingParams shading, const PixelParams pixel, const UnityGIInput unityData,
     half diffuseAO, inout half3 Fd, inout half3 Fr) {
 #if !defined(SHADING_MODEL_CLOTH) && !defined(SHADING_MODEL_SUBSURFACE)
 #if defined(MATERIAL_HAS_SHEEN_COLOR)
@@ -743,12 +743,12 @@ void evaluateSheenIBL(const ShadingParams shading, const PixelParams pixel,
     half3 reflectance = pixel.sheenDFG * pixel.sheenColor;
     reflectance *= computeSpecularAO(shading.NoV, diffuseAO, pixel.sheenRoughness);
 
-    Fr += reflectance * prefilteredRadiance(shading.reflected, pixel.sheenPerceptualRoughness);
+    Fr += reflectance * UnityGI_prefilteredRadiance(unityData, pixel.sheenPerceptualRoughness, shading.reflected);
 #endif
 #endif
 }
 
-void evaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel,
+void evaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel, const UnityGIInput unityData,
     half diffuseAO, inout half3 Fd, inout half3 Fr) {
 #if IBL_INTEGRATION == IBL_INTEGRATION_IMPORTANCE_SAMPLING
     half specularAO = computeSpecularAO(shading.NoV, diffuseAO, pixel.clearCoatRoughness);
@@ -773,15 +773,16 @@ void evaluateClearCoatIBL(const ShadingParams shading, const PixelParams pixel,
 
     // TODO: Should we apply specularAO to the attenuation as well?
     half specularAO = computeSpecularAO(clearCoatNoV, diffuseAO, pixel.clearCoatRoughness);
-    Fr += prefilteredRadiance(clearCoatR, pixel.clearCoatPerceptualRoughness) * (specularAO * Fc);
+    Fr += UnityGI_prefilteredRadiance(unityData, pixel.clearCoatPerceptualRoughness, clearCoatR) * (specularAO * Fc);
 #endif
 }
 
-void evaluateSubsurfaceIBL(const ShadingParams shading, const PixelParams pixel,
+void evaluateSubsurfaceIBL(const ShadingParams shading, const PixelParams pixel, const UnityGIInput unityData,
     const float3 diffuseIrradiance, inout float3 Fd, inout float3 Fr) {
 #if defined(SHADING_MODEL_SUBSURFACE)
     float3 viewIndependent = diffuseIrradiance;
-    float3 viewDependent = prefilteredRadiance(-shading.view, pixel.roughness, 1.0 + pixel.thickness);
+    half transmissionRoughness = saturate(pixel.perceptualRoughness + pixel.thickness);
+    float3 viewDependent = UnityGI_prefilteredRadiance(unityData, transmissionRoughness, -shading.view);
     float attenuation = (1.0 - pixel.thickness) / (2.0 * PI);
     Fd += pixel.subsurfaceColor * (viewIndependent + viewDependent) * attenuation;
 #elif defined(SHADING_MODEL_CLOTH) && defined(MATERIAL_HAS_SUBSURFACE_COLOR)
@@ -843,6 +844,7 @@ void refractionThinSphere(const ShadingParams shading, const PixelParams pixel,
 void applyRefraction(
     const ShadingParams shading,
     const PixelParams pixel,
+    const UnityGIInput unityData,
     half3 E, half3 Fd, half3 Fr,
     inout half3 color) {
 
@@ -887,8 +889,6 @@ void applyRefraction(
     // when reading from the cubemap, we are not pre-exposed so we apply iblLuminance
     // which is not the case when we'll read from the screen-space buffer
 
-    // Gather Unity GI data
-    UnityGIInput unityData = InitialiseUnityGIInput(shading, pixel);
     half3 Ft = UnityGI_prefilteredRadiance(unityData, perceptualRoughness, ray.direction) * iblLuminance;
 #else
     // compute the point where the ray exits the medium, if needed
@@ -927,12 +927,12 @@ void applyRefraction(
 }
 #endif
 
-void combineDiffuseAndSpecular(const ShadingParams shading, const PixelParams pixel,
+void combineDiffuseAndSpecular(const ShadingParams shading, const PixelParams pixel, const UnityGIInput unityData,
         const half3 E, const half3 Fd, const half3 Fr,
         inout half3 color) {
     const half iblLuminance = 1.0; // Unknown
 #if defined(HAS_REFRACTION)
-    applyRefraction(shading, pixel, E, Fd, Fr, color);
+    applyRefraction(shading, pixel, unityData, E, Fd, Fr, color);
 #else
     color.rgb += (Fd + Fr) * iblLuminance;
 #endif
@@ -1028,20 +1028,20 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     half3 Fd = pixel.diffuseColor * diffuseIrradiance * (1.0 - E) * diffuseBRDF;
 
     // subsurface layer
-    evaluateSubsurfaceIBL(shading, pixel, diffuseIrradiance, Fd, Fr);
+    evaluateSubsurfaceIBL(shading, pixel, unityData, diffuseIrradiance, Fd, Fr);
 
     // extra ambient occlusion term for the base and subsurface layers
     multiBounceAO(diffuseAO, pixel.diffuseColor, Fd);
     multiBounceSpecularAO(specularAO, pixel.f0, Fr);
 
     // sheen layer
-    evaluateSheenIBL(shading, pixel, diffuseAO, Fd, Fr);
+    evaluateSheenIBL(shading, pixel, unityData, diffuseAO, Fd, Fr);
 
     // clear coat layer
-    evaluateClearCoatIBL(shading, pixel, diffuseAO, Fd, Fr);
+    evaluateClearCoatIBL(shading, pixel, unityData, diffuseAO, Fd, Fr);
 
     // Note: iblLuminance is already premultiplied by the exposure
-    combineDiffuseAndSpecular(shading, pixel, E, Fd, Fr, color);
+    combineDiffuseAndSpecular(shading, pixel, unityData, E, Fd, Fr, color);
 
     #if defined(LIGHTMAP_SPECULAR)
     PixelParams pixelForBakedSpecular = pixel;
