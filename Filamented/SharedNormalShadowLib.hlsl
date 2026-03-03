@@ -13,6 +13,8 @@ half NormalMapShadows (half3 lightDirTangent, NormalMapShadowsParam nmsParam, ha
 	const half hardness = heightScale * shadowHardness;
 	const half sampleStep = 1.0 / screenShadowSamples;
 
+	if (lightDirTangent.z <= 0.0) return 0.0;
+
 	half2 dir = lightDirTangent.xy * heightScale;
 
 	// Redundancy can't be helped
