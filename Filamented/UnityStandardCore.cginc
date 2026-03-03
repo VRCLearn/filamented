@@ -165,7 +165,11 @@ inline MaterialInputs ClothMaterialSetup (float4 i_tex)
     #if defined(MATERIAL_HAS_SHEEN_COLOR)
     material.sheenColor = specColor;
     #endif
+    #if defined(SHADING_MODEL_SPECULAR_GLOSSINESS)
+    material.glossiness = smoothness;
+    #else
     material.roughness = computeRoughnessFromGlossiness(smoothness);
+    #endif
     return material;
 }
 #else
