@@ -21,9 +21,10 @@ Shader "Silent/Filamented Extras/Filamented Glinty"
         _SpecularGlintSize("Glint Size", Range(0, 1)) = 0.5
         _SpecularGlintDensity("Glint Density", Range(0, 1)) = 0.5
         [Header(Clear Coat Properties)][Space]
-        [SingleLine]_ClearCoatMap("Clear Coat Map (R: Intensity, G: Roughness)", 2D) = "white" {}
-        _ClearCoat("Clear Coat Intensity", Range(0, 1)) = 0.0
-        _ClearCoatRoughness("Clear Coat Roughness", Range(0, 1)) = 0.0
+        [Toggle(_USE_CLEARCOAT)]_ClearCoatMode("Clear Coat", Float) = 0
+        [IfDef(_USE_CLEARCOAT)][SingleLine]_ClearCoatMap("Clear Coat Map (R: Intensity, G: Roughness)", 2D) = "white" {}
+        [IfDef(_USE_CLEARCOAT)]_ClearCoat("Clear Coat Intensity", Range(0, 1)) = 0.0
+        [IfDef(_USE_CLEARCOAT)]_ClearCoatRoughness("Clear Coat Roughness", Range(0, 1)) = 0.0
         [Header(System Settings)][Space]
         [Toggle(_LIGHTMAPSPECULAR)]_LightmapSpecular("Lightmap Specular", Range(0, 1)) = 1
         _LightmapSpecularMaxSmoothness("Lightmap Specular Max Smoothness", Range(0, 1)) = 1
@@ -75,7 +76,9 @@ Shader "Silent/Filamented Extras/Filamented Glinty"
     	// MATERIAL_HAS_ANISOTROPY
     	// If this is set, the material will support anisotropy.
 
+        #if defined(_USE_CLEARCOAT)
     	#define MATERIAL_HAS_CLEAR_COAT
+        #endif
     	// If this is set, the material will support clear coat.
 
         // HAS_ATTRIBUTE_COLOR
@@ -117,9 +120,11 @@ Shader "Silent/Filamented Extras/Filamented Glinty"
     uniform half _SpecularGlintSize;
     uniform half _SpecularGlintDensity;
 
+    #if defined(_USE_CLEARCOAT)
     uniform sampler2D _ClearCoatMap;
     uniform half _ClearCoat;
     uniform half _ClearCoatRoughness;
+    #endif
 
 	// Vertex functions are called from UnityStandardCore.
 	// You can alter values here, or copy the function in and modify it.
@@ -132,7 +137,6 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     half4 baseColor = tex2D (_MainTex, i_tex.xy) * _Color;
     half4 packedMap = tex2D (_MOESMap, i_tex.xy);
     half3 normalTangent = UnpackScaleNormal(tex2D (_BumpMap, i_tex.xy), _BumpScale);
-    half4 ccMap = tex2D(_ClearCoatMap, i_tex.xy);
 
     half metallic = packedMap.x * _MetallicScale;
     half occlusion = lerp(1, packedMap.y, _OcclusionScale);
@@ -156,8 +160,11 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     material.glintAlpha = internal_glint_alpha;
     material.glintDensity = internal_density;
 
+    #if defined(_USE_CLEARCOAT)
+    half4 ccMap = tex2D(_ClearCoatMap, i_tex.xy);
     material.clearCoat = ccMap.r * _ClearCoat;
     material.clearCoatRoughness = ccMap.g * _ClearCoatRoughness;
+    #endif
 
     return material;
 }
@@ -260,6 +267,8 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             #pragma shader_feature_local _GLOSSYREFLECTIONS_OFF
             #pragma shader_feature_local _LIGHTMAPSPECULAR
 
+            #pragma shader_feature_local_fragment _ _USE_CLEARCOAT
+
             #pragma shader_feature_local _ _BAKERY_RNM _BAKERY_SH _BAKERY_MONOSH
             #pragma shader_feature_local _LTCGI
             #pragma shader_feature_local _VRCLV
@@ -293,9 +302,10 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
 
             // -------------------------------------
 
-
             #pragma shader_feature_local _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
             #pragma shader_feature_local _SPECULARHIGHLIGHTS_OFF
+
+            #pragma shader_feature_local_fragment _ _USE_CLEARCOAT
 
             #pragma multi_compile_fwdadd_fullshadows
             #pragma multi_compile_fog
