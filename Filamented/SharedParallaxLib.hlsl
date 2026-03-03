@@ -122,12 +122,12 @@ float GetParallaxSelfShadow(float3 lightDir, float2 uv, PerPixelHeightDisplaceme
     // If it's 0, we are at the horizon.
     if (lightDir.z <= 0.0) return 0.0;
 
-    const int numSamples = 8;
+    const int numSamples = 16;
 
     float initialHeight = ComputePerPixelHeightDisplacement(0, 0, ppdParam);
 
     // Scale the penumbra by the surface depth.
-    float shadowHardness = 1.0 / (_Parallax * 2.0);
+    float shadowHardness = 1.0 / (_BumpShadowHardness);
 
     float heightToTravel = 1.0 - initialHeight;
     float2 uvStep = (lightDir.xy * _Parallax) / (lightDir.z * numSamples);
@@ -149,7 +149,7 @@ float GetParallaxSelfShadow(float3 lightDir, float2 uv, PerPixelHeightDisplaceme
             float distanceAlongRay = (float)i / (float)numSamples;
             float penetration = (sampledHeight - currentRayHeight) * (1.0 - distanceAlongRay);
 
-            shadowFactor = min(shadowFactor, saturate(1.0 - penetration * shadowHardness * 8.0));
+            shadowFactor = min(shadowFactor, saturate(1.0 - penetration * shadowHardness * numSamples));
         }
 
         if (shadowFactor <= 0.0) break;
