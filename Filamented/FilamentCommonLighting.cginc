@@ -59,6 +59,14 @@ struct PixelParams {
     half uThickness;
     half3 absorption;
 #endif
+
+#if defined(MATERIAL_HAS_GLINT)
+    float2 uv;
+    float2 ddx_uv;
+    float2 ddy_uv;
+    float  glintAlpha;
+    float  glintDensity;
+#endif
 };
 
 half computeMicroShadowing(half NoL, half visibility) {

@@ -661,7 +661,7 @@ half3 getReflectedVector(const PixelParams pixel, const half3 v, const half3 n) 
     half3  anisotropyDirection = pixel.anisotropy >= 0.0 ? pixel.anisotropicB : pixel.anisotropicT;
     half3  anisotropicTangent  = cross(anisotropyDirection, v);
     half3  anisotropicNormal   = cross(anisotropicTangent, anisotropyDirection);
-    half bendFactor          = abs(pixel.anisotropy) * saturate(5.0 * pixel.perceptualRoughness);
+    half   bendFactor          = abs(pixel.anisotropy) * saturate(5.0 * pixel.perceptualRoughness);
     half3  bentNormal          = normalize(lerp(n, anisotropicNormal, bendFactor));
 
     half3 r = reflect(-v, bentNormal);

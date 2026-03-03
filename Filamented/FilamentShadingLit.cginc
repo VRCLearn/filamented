@@ -273,6 +273,17 @@ void getEnergyCompensationPixelParams(const ShadingParams shading, inout PixelPa
 #endif
 }
 
+
+void geGlintPixelParams(const ShadingParams shading, const MaterialInputs material, inout PixelParams pixel) {
+#if defined(MATERIAL_HAS_GLINT)
+    pixel.uv = material.uv;
+    pixel.ddx_uv = ddx(material.uv);
+    pixel.ddy_uv = ddy(material.uv);
+    pixel.glintAlpha = material.glintAlpha;
+    pixel.glintDensity = material.glintDensity;
+#endif
+}
+
 /**
  * Computes all the parameters required to shade the current pixel/fragment.
  * These parameters are derived from the MaterialInputs structure computed
@@ -289,6 +300,7 @@ void getPixelParams(const ShadingParams shading, const MaterialInputs material, 
     getRoughnessPixelParams(shading, material, pixel);
     getSubsurfacePixelParams(material, pixel);
     getAnisotropyPixelParams(shading, material, pixel);
+    geGlintPixelParams(shading, material, pixel);
     getEnergyCompensationPixelParams(shading, pixel);
 }
 

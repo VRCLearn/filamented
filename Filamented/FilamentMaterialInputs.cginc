@@ -31,6 +31,12 @@ struct MaterialInputs {
     half sheenRoughness;
 #endif
 
+#if defined(MATERIAL_HAS_GLINT)
+    float2 uv;
+    float  glintAlpha;
+    float  glintDensity;
+#endif
+
     half clearCoat;
     half clearCoatRoughness;
 
@@ -158,6 +164,12 @@ void initMaterial(out MaterialInputs material) {
 
 #if defined(MATERIAL_HAS_POST_LIGHTING_COLOR)
     material.postLightingColor = half4(0.0.xxx);
+#endif
+
+#if defined(MATERIAL_HAS_GLINT)
+    material.uv = float2(0.0, 0.0);
+    material.glintAlpha = 0.05;
+    material.glintDensity = 10000.0;
 #endif
 
 #if !defined(SHADING_MODEL_CLOTH) && !defined(SHADING_MODEL_SUBSURFACE) && !defined(SHADING_MODEL_UNLIT)

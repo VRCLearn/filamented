@@ -4,6 +4,10 @@
 
 #include "FilamentBRDF.cginc"
 
+#if defined(MATERIAL_HAS_GLINT)
+#include "SharedGlintyBRDF.hlsl"
+#endif
+
 #if defined(MATERIAL_HAS_SHEEN_COLOR)
 half3 sheenLobe(const PixelParams pixel, half NoV, half NoL, half NoH) {
     half D = distributionCloth(pixel.sheenRoughness, NoH);
@@ -81,10 +85,43 @@ half3 isotropicLobe(const PixelParams pixel, const Light light, const half3 h,
     return (D * V) * F;
 }
 
+#if defined(MATERIAL_HAS_GLINT)
+half3 isotropicGlintLobe(const ShadingParams shading, const PixelParams pixel, const Light light,
+        const half3 h, half NoV, half NoL, half NoH, half LoH) {
+
+    float3 tangentH = mul(h, shading.tangentToWorld);
+
+    float2x2 Jacobian = float2x2(pixel.ddx_uv, pixel.ddy_uv);
+    float2x2 uv_ellipsoid = get_uv_ellipsoid(Jacobian);
+
+    half D = EvaluateGlintyNDF(
+        tangentH,
+        pixel.roughness,
+        pixel.glintAlpha,
+        pixel.uv,
+        uv_ellipsoid,
+        pixel.glintDensity,
+        0.8 // Filter size
+    );
+    D = max(0, D);
+
+    half   V = visibility(pixel.roughness, NoV, NoL);
+#if defined(MATERIAL_HAS_SPECULAR_COLOR_FACTOR) || defined(MATERIAL_HAS_SPECULAR_FACTOR)
+    half3  F = fresnel(pixel.f0, pixel.f90, LoH);
+#else
+    half3  F = fresnel(pixel.f0, LoH);
+#endif
+
+    return (D * V) * F;
+}
+#endif
+
 half3 specularLobe(const ShadingParams shading, const PixelParams pixel, const Light light,
     const half3 h, half NoV, half NoL, half NoH, half LoH, half3 NxH) {
 #if defined(MATERIAL_HAS_ANISOTROPY)
     return anisotropicLobe(shading, pixel, light, h, NoV, NoL, NoH, LoH);
+#elif defined(MATERIAL_HAS_GLINT)
+    return isotropicGlintLobe(shading, pixel, light, h, NoV, NoL, NoH, LoH);
 #else
     return isotropicLobe(pixel, light, h, NoV, NoL, NoH, LoH, NxH);
 #endif
