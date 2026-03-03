@@ -15,12 +15,16 @@ Shader "Silent/Filamented Extras/Filamented Glinty"
         _OcclusionScale("Occlusion", Range( 0 , 1)) = 0
         _SmoothnessScale("Smoothness", Range( 0 , 1)) = 0
         [Space]
-        _SpecularGlintSize("Glint Size", Range(0, 1)) = 0.5
-        _SpecularGlintDensity("Glint Density", Range(0, 1)) = 0.5
-        [Space]
         _Emission("Emission Power", Float) = 0
         _EmissionColor("Emission Color", Color) = (1,1,1,1)
-        [Space]
+        [Header(Glint Properties)][Space]
+        _SpecularGlintSize("Glint Size", Range(0, 1)) = 0.5
+        _SpecularGlintDensity("Glint Density", Range(0, 1)) = 0.5
+        [Header(Clear Coat Properties)][Space]
+        [SingleLine]_ClearCoatMap("Clear Coat Map (R: Intensity, G: Roughness)", 2D) = "white" {}
+        _ClearCoat("Clear Coat Intensity", Range(0, 1)) = 0.0
+        _ClearCoatRoughness("Clear Coat Roughness", Range(0, 1)) = 0.0
+        [Header(System Settings)][Space]
         [Toggle(_LIGHTMAPSPECULAR)]_LightmapSpecular("Lightmap Specular", Range(0, 1)) = 1
         _LightmapSpecularMaxSmoothness("Lightmap Specular Max Smoothness", Range(0, 1)) = 1
         _ExposureOcclusion("Lightmap Occlusion Sensitivity", Range(0, 1)) = 0.2
@@ -71,7 +75,7 @@ Shader "Silent/Filamented Extras/Filamented Glinty"
     	// MATERIAL_HAS_ANISOTROPY
     	// If this is set, the material will support anisotropy.
 
-    	// MATERIAL_HAS_CLEAR_COAT
+    	#define MATERIAL_HAS_CLEAR_COAT
     	// If this is set, the material will support clear coat.
 
         // HAS_ATTRIBUTE_COLOR
@@ -113,6 +117,10 @@ Shader "Silent/Filamented Extras/Filamented Glinty"
     uniform half _SpecularGlintSize;
     uniform half _SpecularGlintDensity;
 
+    uniform sampler2D _ClearCoatMap;
+    uniform half _ClearCoat;
+    uniform half _ClearCoatRoughness;
+
 	// Vertex functions are called from UnityStandardCore.
 	// You can alter values here, or copy the function in and modify it.
 	VertexOutputForwardBase vertBase (VertexInput v) { return vertForwardBase(v); }
@@ -124,6 +132,7 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     half4 baseColor = tex2D (_MainTex, i_tex.xy) * _Color;
     half4 packedMap = tex2D (_MOESMap, i_tex.xy);
     half3 normalTangent = UnpackScaleNormal(tex2D (_BumpMap, i_tex.xy), _BumpScale);
+    half4 ccMap = tex2D(_ClearCoatMap, i_tex.xy);
 
     half metallic = packedMap.x * _MetallicScale;
     half occlusion = lerp(1, packedMap.y, _OcclusionScale);
@@ -146,6 +155,9 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     material.uv = i_tex.xy;
     material.glintAlpha = internal_glint_alpha;
     material.glintDensity = internal_density;
+
+    material.clearCoat = ccMap.r * _ClearCoat;
+    material.clearCoatRoughness = ccMap.g * _ClearCoatRoughness;
 
     return material;
 }
