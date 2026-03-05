@@ -30,7 +30,7 @@ namespace Silent.FilamentedExtras.Unity
 				sectionHeaderBox.padding.top = 0;
 				sectionHeaderBox.padding.bottom = 0;
 			}
-		}	
+		}
 
 		sealed class HeaderExDecorator : MaterialPropertyDrawer
     	{
@@ -250,7 +250,7 @@ namespace Silent.FilamentedExtras.Unity
 
 			if (prop.type != MaterialProperty.PropType.Texture)
 				return;
-			
+
 			var oldLabelWidth = EditorGUIUtility.labelWidth;
 			EditorGUIUtility.labelWidth = 0f;
 			s_drawing = true;
@@ -280,7 +280,7 @@ namespace Silent.FilamentedExtras.Unity
                     editor.TexturePropertySingleLine(label, prop, extraProp, additionalProp);
                 }
 			}
-			
+
             EditorGUI.EndChangeCheck();
             }
 			finally
@@ -288,7 +288,7 @@ namespace Silent.FilamentedExtras.Unity
 				s_drawing = false;
 				EditorGUIUtility.labelWidth = oldLabelWidth;
 			}
-			
+
 		}
 	}
 
@@ -327,7 +327,7 @@ namespace Silent.FilamentedExtras.Unity
 			var oldLabelWidth = EditorGUIUtility.labelWidth;
 			EditorGUIUtility.labelWidth = 0f;
 			s_drawing = true;
-			
+
 			try
 			{
 				EditorGUI.BeginChangeCheck();
@@ -340,7 +340,7 @@ namespace Silent.FilamentedExtras.Unity
 				{
 					var extraProp = MaterialEditor.GetMaterialProperty(prop.targets, _extraPropName);
 
-					if (extraProp != null && extraProp.type == MaterialProperty.PropType.Color && 
+					if (extraProp != null && extraProp.type == MaterialProperty.PropType.Color &&
 						(extraProp.flags & MaterialProperty.PropFlags.HDR) > 0)
 					{
 						editor.TexturePropertyWithHDRColor(label, prop, extraProp, false);
@@ -460,9 +460,9 @@ sealed class TexturePropertyTwoLines : MaterialPropertyDrawer
     	sealed class ScaleOffsetDecorator : MaterialPropertyDrawer
     	{
     	    bool _initialized = false;
-	
+
     	    public ScaleOffsetDecorator() { }
-	
+
     	    public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
     	    {
     	        if (!_initialized)
@@ -472,7 +472,7 @@ sealed class TexturePropertyTwoLines : MaterialPropertyDrawer
     	        }
     	        return 2f * EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
     	    }
-	
+
     	    public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
     	    {
     	        position.xMin += 15f;
@@ -480,114 +480,171 @@ sealed class TexturePropertyTwoLines : MaterialPropertyDrawer
     	        editor.TextureScaleOffsetProperty(position, prop);
     	    }
     	}
-    	
-	    sealed class IfDefDecorator : MaterialPropertyDrawer
-	    {
-	        readonly string _keyword;
 
-	        public IfDefDecorator(string keyword)
-	        {
-	            _keyword = keyword;
-	        }
+        sealed class IfDefDecorator : MaterialPropertyDrawer
+    	{
+    		readonly string[] _keywords;
 
-	        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
-	        {
-	            var materials = Array.ConvertAll(prop.targets, o => o as Material);
-	            var enabled = materials[0].IsKeywordEnabled(_keyword);
-	            if (!enabled)
-	            {
-	                prop.SkipRemainingDrawers(this);
-	            }
-	            else
-	            {
-	                for (var i = 1; i < materials.Length; ++i)
-	                {
-	                    if (materials[i].IsKeywordEnabled(_keyword) != enabled)
-	                    {
-	                        prop.SkipRemainingDrawers(this);
-	                        break;
-	                    }
-	                }
-	            }
-	            return 0;
-	        }
+    		// 1 Argument: Chains to master
+    		public IfDefDecorator(string k1) : this(k1, null, null, null) { }
 
-	        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
-	        {
-	            var materials = Array.ConvertAll(prop.targets, o => o as Material);
-	            var enabled = materials[0].IsKeywordEnabled(_keyword);
-	            if (!enabled)
-	            {
-	                prop.SkipRemainingDrawers(this);
-	            }
-	            else
-	            {
-	                for (var i = 1; i < materials.Length; ++i)
-	                {
-	                    if (materials[i].IsKeywordEnabled(_keyword) != enabled)
-	                    {
-	                        prop.SkipRemainingDrawers(this);
-	                        break;
-	                    }
-	                }
-	            }
-	        }
-	    }
+    		// 2 Arguments: Chains to master
+    		public IfDefDecorator(string k1, string k2) : this(k1, k2, null, null) { }
 
-	    sealed class IfNDefDecorator : MaterialPropertyDrawer
-	    {
-	        static readonly float s_helpBoxHeight = EditorStyles.helpBox.CalcHeight(GUIContent.none, 0f);
+    		// 3 Arguments: Chains to master
+    		public IfDefDecorator(string k1, string k2, string k3) : this(k1, k2, k3, null) { }
 
-	        readonly string _keyword;
+    		// Master Constructor (4 Arguments)
+    		public IfDefDecorator(string k1, string k2, string k3, string k4)
+    		{
+    			// Collect valid keywords into the array
+    			var list = new List<string>();
+    			if (!string.IsNullOrEmpty(k1)) list.Add(k1);
+    			if (!string.IsNullOrEmpty(k2)) list.Add(k2);
+    			if (!string.IsNullOrEmpty(k3)) list.Add(k3);
+    			if (!string.IsNullOrEmpty(k4)) list.Add(k4);
+    			_keywords = list.ToArray();
+    		}
 
-	        public IfNDefDecorator(string keyword)
-	        {
-	            _keyword = keyword;
-	        }
+    		private bool IsConditionMet(Material mat)
+    		{
+    			// OR Logic: If ANY of the keywords are enabled, return true
+    			foreach (var keyword in _keywords)
+    			{
+    				if (mat.IsKeywordEnabled(keyword))
+    					return true;
+    			}
+    			return false;
+    		}
 
-	        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
-	        {
-	            var materials = Array.ConvertAll(prop.targets, o => o as Material);
-	            var enabled = materials[0].IsKeywordEnabled(_keyword);
-	            if (enabled)
-	            {
-	                prop.SkipRemainingDrawers(this);
-	            }
-	            else
-	            {
-	                for (var i = 1; i < materials.Length; ++i)
-	                {
-	                    if (materials[i].IsKeywordEnabled(_keyword) != enabled)
-	                    {
-	                        prop.SkipRemainingDrawers(this);
-	                        break;
-	                    }
-	                }
-	            }
-	            return 0;
-	        }
+    		public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+    		{
+    			var materials = Array.ConvertAll(prop.targets, o => o as Material);
 
-	        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
-	        {
-	            var materials = Array.ConvertAll(prop.targets, o => o as Material);
-	            var enabled = materials[0].IsKeywordEnabled(_keyword);
-	            if (enabled)
-	            {
-	                prop.SkipRemainingDrawers(this);
-	            }
-	            else
-	            {
-	                for (var i = 1; i < materials.Length; ++i)
-	                {
-	                    if (materials[i].IsKeywordEnabled(_keyword) != enabled)
-	                    {
-	                        prop.SkipRemainingDrawers(this);
-	                        break;
-	                    }
-	                }
-	            }
-	        }
-	    }
+    			// Check first material
+    			var conditionMet = IsConditionMet(materials[0]);
+
+    			// If not met, skip.
+    			if (!conditionMet)
+    			{
+    				prop.SkipRemainingDrawers(this);
+    				return 0;
+    			}
+
+    			// If mixed (some objects have it, some don't), we usually hide to avoid conflicts
+    			for (var i = 1; i < materials.Length; ++i)
+    			{
+    				if (IsConditionMet(materials[i]) != conditionMet)
+    				{
+    					prop.SkipRemainingDrawers(this);
+    					break;
+    				}
+    			}
+    			return 0;
+    		}
+
+    		public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
+    		{
+    			var materials = Array.ConvertAll(prop.targets, o => o as Material);
+    			var conditionMet = IsConditionMet(materials[0]);
+
+    			if (!conditionMet)
+    			{
+    				prop.SkipRemainingDrawers(this);
+    			}
+    			else
+    			{
+    				for (var i = 1; i < materials.Length; ++i)
+    				{
+    					if (IsConditionMet(materials[i]) != conditionMet)
+    					{
+    						prop.SkipRemainingDrawers(this);
+    						break;
+    					}
+    				}
+    			}
+    		}
+    	}
+
+    	sealed class IfNDefDecorator : MaterialPropertyDrawer
+    	{
+    		readonly string[] _keywords;
+
+    		// 1 Argument: Chains to master
+    		public IfNDefDecorator(string k1) : this(k1, null, null, null) { }
+
+    		// 2 Arguments: Chains to master
+    		public IfNDefDecorator(string k1, string k2) : this(k1, k2, null, null) { }
+
+    		// 3 Arguments: Chains to master
+    		public IfNDefDecorator(string k1, string k2, string k3) : this(k1, k2, k3, null) { }
+
+    		// Master Constructor (4 Arguments)
+    		public IfNDefDecorator(string k1, string k2, string k3, string k4)
+    		{
+    			var list = new List<string>();
+    			if (!string.IsNullOrEmpty(k1)) list.Add(k1);
+    			if (!string.IsNullOrEmpty(k2)) list.Add(k2);
+    			if (!string.IsNullOrEmpty(k3)) list.Add(k3);
+    			if (!string.IsNullOrEmpty(k4)) list.Add(k4);
+    			_keywords = list.ToArray();
+    		}
+
+    		private bool IsConditionMet(Material mat)
+    		{
+    			foreach (var keyword in _keywords)
+    			{
+    				if (mat.IsKeywordEnabled(keyword))
+    					return true;
+    			}
+    			return false;
+    		}
+
+    		public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+    		{
+    			var materials = Array.ConvertAll(prop.targets, o => o as Material);
+    			var conditionMet = IsConditionMet(materials[0]);
+
+    			// IfNDef Logic: If the condition IS met (keyword defined), we SKIP (Hide)
+    			if (conditionMet)
+    			{
+    				prop.SkipRemainingDrawers(this);
+    				return 0;
+    			}
+
+    			for (var i = 1; i < materials.Length; ++i)
+    			{
+    				if (IsConditionMet(materials[i]) != conditionMet)
+    				{
+    					prop.SkipRemainingDrawers(this);
+    					break;
+    				}
+    			}
+    			return 0;
+    		}
+
+    		public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
+    		{
+    			var materials = Array.ConvertAll(prop.targets, o => o as Material);
+    			var conditionMet = IsConditionMet(materials[0]);
+
+    			if (conditionMet)
+    			{
+    				prop.SkipRemainingDrawers(this);
+    			}
+    			else
+    			{
+    				for (var i = 1; i < materials.Length; ++i)
+    				{
+    					if (IsConditionMet(materials[i]) != conditionMet)
+    					{
+    						prop.SkipRemainingDrawers(this);
+    						break;
+    					}
+    				}
+    			}
+    		}
+    	}
 
 		sealed class IfSetDecorator : MaterialPropertyDrawer
 		{
@@ -705,7 +762,7 @@ sealed class TexturePropertyTwoLines : MaterialPropertyDrawer
 						Color colorValue = prop.colorValue;
 						value = new Vector4(colorValue.r, colorValue.g, colorValue.b, colorValue.a);
 					}
-					
+
 					if (!_initialized)
 					{
 						// prop.ReplacePropertyDrawerWithDecorator(this);
@@ -806,7 +863,7 @@ sealed class TexturePropertyTwoLines : MaterialPropertyDrawer
 			private readonly string _customRenderQueue;
 			private readonly string _zWrite;
 			private readonly string _alphaToMask;
-			
+
 			public BlendModeSelectorDrawer(string srcBlend, string dstBlend, string customRenderQueue, string zWrite = null, string alphaToMask = null)
 			{
 				_srcBlend = srcBlend;
