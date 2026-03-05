@@ -1,6 +1,6 @@
 /*
 Filamented example template.
-*/ 
+*/
 Shader "Silent/Filamented Extras/Filamented Details Template"
 {
     Properties
@@ -66,14 +66,10 @@ Shader "Silent/Filamented Extras/Filamented Details Template"
 
     CGINCLUDE
         #pragma multi_compile_local _ _DTRIPLANAR
-    	// First, setup what Filamented does. 
+    	// First, setup what Filamented does.
     	// Filamented's behaviour is decided by the shading model and what material properties are defined.
     	// These are listed in FilamentMaterialInputs.
     	// You can set up and use anything in the initMaterials function.
-
-		// SHADING_MODEL_CLOTH
-		// SHADING_MODEL_SUBSURFACE
-    	// These are *not* currently supported.
 
     	// SHADING_MODEL_SPECULAR_GLOSSINESS
     	// If this is not defined, the material will default to metallic/roughness workflow.
@@ -90,7 +86,7 @@ Shader "Silent/Filamented Extras/Filamented Details Template"
     	// MATERIAL_HAS_ANISOTROPY
     	// If this is set, the material will support anisotropy.
 
-    	// MATERIAL_HAS_CLEAR_COAT 
+    	// MATERIAL_HAS_CLEAR_COAT
     	// If this is set, the material will support clear coat.
 
         // HAS_ATTRIBUTE_COLOR
@@ -110,10 +106,10 @@ Shader "Silent/Filamented Extras/Filamented Details Template"
     #include "Packages/s-ilent.filamented/Filamented/UnityStandardConfig.cginc"
     #include "Packages/s-ilent.filamented/Filamented/UnityStandardCore.cginc"
 	// Note: Unfortunately, Input is still needed due to some interdependancies with other Unity files.
-	// This means that some properties will always be defined, even if they aren't used. 
+	// This means that some properties will always be defined, even if they aren't used.
 	// In practise, this won't affect the final compilation, but it means you'll need to watch out for the names
 	// of some common parameters. In this case, only MOESMap and some other properties are defined here because
-	// they are already defined in Input. 
+	// they are already defined in Input.
 
     // uniform sampler2D _MainTex;
     // uniform sampler2D _BumpMap;
@@ -163,7 +159,7 @@ float4 boxmap(sampler2D tex, float3 p, float3 n, float k )
     if (m.y > 0) y = tex2Dgrad( tex, p.zx, dpdx.zx, dpdy.zx );
     float4 z = 0.0;
     if (m.z > 0) z = tex2Dgrad( tex, p.xy, dpdx.xy, dpdy.xy );
-    
+
     // and blend
     return (x*m.x + y*m.y + z*m.z) / (m.x + m.y + m.z);
 }
@@ -191,9 +187,9 @@ float3 RNMBlendUnpacked(float3 n1, float3 n2)
     return n1*dot(n1, n2)/n1.z - n2;
 }
 
-	// The material function itself!  You can alter the code below to add extra properties. 
+	// The material function itself!  You can alter the code below to add extra properties.
 inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half3 i_viewDirForParallax, float4 tangentToWorld[3], float3 i_posWorld)
-{   
+{
     half4 baseColor = tex2D (_MainTex, i_tex.xy) * _Color;
     half4 packedMap = tex2D (_MOESMap, i_tex.xy);
     half3 normalTangent = UnpackScaleNormal(tex2D (_BumpMap, i_tex.xy), _BumpScale);
@@ -201,7 +197,7 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     half metallic = packedMap.x * _MetallicScale;
     half occlusion = lerp(1, packedMap.y, _OcclusionScale);
     half emissionMask = packedMap.z;
-    half smoothness = packedMap.w * _SmoothnessScale; 
+    half smoothness = packedMap.w * _SmoothnessScale;
 
     #if defined(_DTRIPLANAR)
     float triSharp = _TriplanarSharp;
@@ -302,7 +298,7 @@ half4 fragForwardAddTemplate (VertexOutputForwardAdd i)
 
 half4 fragBase (VertexOutputForwardBase i) : SV_Target { return fragForwardBaseTemplate(i); }
 half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemplate(i); }
-    #endif 
+    #endif
 
     ENDCG
 
@@ -332,7 +328,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             #pragma shader_feature_local _SPECULARHIGHLIGHTS_OFF
             #pragma shader_feature_local _GLOSSYREFLECTIONS_OFF
             #pragma shader_feature_local _LIGHTMAPSPECULAR
-            
+
             #pragma shader_feature_local _ _BAKERY_RNM _BAKERY_SH _BAKERY_MONOSH
             #pragma shader_feature_local _LTCGI
             #pragma shader_feature_local _VRCLV
@@ -383,7 +379,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
 
             ENDCG
         }
-        
+
         // ------------------------------------------------------------------
         //  Shadow rendering pass
         Pass {
@@ -401,7 +397,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
 
             #ifndef UNITY_PASS_SHADOWCASTER
             #define UNITY_PASS_SHADOWCASTER
-            #endif  
+            #endif
 
             #pragma shader_feature_local _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
             #pragma multi_compile_shadowcaster
@@ -416,14 +412,14 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
 
             ENDCG
         }
-        
+
         Pass
         {
             Name "META"
             Tags {"LightMode"="Meta"}
             Cull Off
             CGPROGRAM
-            
+
             #define REQUIRE_META_WORLDPOS
 
             #include "Packages/s-ilent.filamented/Filamented/UnityStandardMeta.cginc"
@@ -435,7 +431,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
                 MaterialInputs material = SETUP_BRDF_INPUT (i.uv);
                 float4 dummy[3]; dummy[0] = 1; dummy[1] = 0; dummy[2] = 0;
                 material = MyMaterialSetup (i.uv, 0, 0, dummy, i.worldPos);
-                
+
                 PixelParams pixel = (PixelParams)0;
                 getCommonPixelParams(material, pixel);
 

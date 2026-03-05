@@ -2,7 +2,7 @@
 Filamented texture blending sample.
 This is designed to be used as-is in existing projects, but
 experienced users may wish to modify how the shader functions.
-*/ 
+*/
 Shader "Silent/Filamented Extras/Texture Blending Filamented"
 {
     Properties
@@ -89,14 +89,10 @@ Shader "Silent/Filamented Extras/Texture Blending Filamented"
     CustomEditor "Silent.FilamentedExtras.Unity.FilamentedExtrasInspector"
 
     CGINCLUDE
-    	// First, setup what Filamented does. 
+    	// First, setup what Filamented does.
     	// Filamented's behaviour is decided by the shading model and what material properties are defined.
     	// These are listed in FilamentMaterialInputs.
     	// You can set up and use anything in the initMaterials function.
-
-		// SHADING_MODEL_CLOTH
-		// SHADING_MODEL_SUBSURFACE
-    	// These are *not* currently supported.
 
     	// SHADING_MODEL_SPECULAR_GLOSSINESS
     	// If this is not defined, the material will default to metallic/roughness workflow.
@@ -113,12 +109,12 @@ Shader "Silent/Filamented Extras/Texture Blending Filamented"
     	// MATERIAL_HAS_ANISOTROPY
     	// If this is set, the material will support anisotropy.
 
-    	// MATERIAL_HAS_CLEAR_COAT 
+    	// MATERIAL_HAS_CLEAR_COAT
     	// If this is set, the material will support clear coat.
 
         #define HAS_ATTRIBUTE_COLOR
         // If this is not defined, vertex colour will not be available.
-        
+
         #define HAS_ATTRIBUTE_UV2
         #define HAS_ATTRIBUTE_UV3
         // If this is not defined, secondary UVs will not be available.
@@ -129,7 +125,7 @@ Shader "Silent/Filamented Extras/Texture Blending Filamented"
     ENDCG
 
     CGINCLUDE
-    // UNITY_SHADER_NO_UPGRADE 
+    // UNITY_SHADER_NO_UPGRADE
     #ifndef UNITY_PASS_SHADOWCASTER
 
     // Include common files. These will include the other files as needed.
@@ -139,9 +135,9 @@ Shader "Silent/Filamented Extras/Texture Blending Filamented"
     #include "Packages/s-ilent.filamented/Filamented/UnityStandardCore.cginc"
     #include "Packages/s-ilent.filamented/Filamented/SharedSamplingLib.hlsl"
 	// Note: Unfortunately, Input is still needed due to some interdependancies with other Unity files.
-	// This means that some properties will always be defined, even if they aren't used. 
+	// This means that some properties will always be defined, even if they aren't used.
 	// In practise, this won't affect the final compilation, but it means you'll need to watch out for the names
-	// of some common parameters. 
+	// of some common parameters.
 
     TEXTURE2D(_MainTexR); TEXTURE2D(_MainTexG); TEXTURE2D(_MainTexB); TEXTURE2D(_MainTexA);
     TEXTURE2D(_BumpMapR); TEXTURE2D(_BumpMapG); TEXTURE2D(_BumpMapB); TEXTURE2D(_BumpMapA);
@@ -152,7 +148,7 @@ Shader "Silent/Filamented Extras/Texture Blending Filamented"
     SAMPLER(sampler_MaskMapR);
 
     float4 _MainTexR_ST; float4 _MainTexG_ST; float4 _MainTexB_ST; float4 _MainTexA_ST;
-    
+
     float4 _ColorR; float4 _ColorG; float4 _ColorB; float4 _ColorA;
     float _BumpScaleR; float _BumpScaleG; float _BumpScaleB; float _BumpScaleA;
 
@@ -168,10 +164,10 @@ Shader "Silent/Filamented Extras/Texture Blending Filamented"
 
     half _WeightFromDirection;
 
-VertexOutputForwardBase vertBase (VertexInput v) 
-    { 
+VertexOutputForwardBase vertBase (VertexInput v)
+    {
         VertexOutputForwardBase o;
-        o = vertForwardBase(v); 
+        o = vertForwardBase(v);
         o.tex.zw = TRANSFORM_TEX(((_UVSec == 0) ? v.uv0 : v.uv1), _MainTex);
     #if defined(HAS_ATTRIBUTE_UV2)
         o.tex.zw = TRANSFORM_TEX(((_UVSec == 2) ? v.uv2 : o.tex.zw), _MainTex);
@@ -181,11 +177,11 @@ VertexOutputForwardBase vertBase (VertexInput v)
     #endif
         return o;
     }
-    
-VertexOutputForwardAdd vertAdd (VertexInput v) 
-    { 
+
+VertexOutputForwardAdd vertAdd (VertexInput v)
+    {
         VertexOutputForwardAdd o;
-        o = vertForwardAdd(v); 
+        o = vertForwardAdd(v);
         o.tex.zw = TRANSFORM_TEX(((_UVSec == 0) ? v.uv0 : v.uv1), _MainTex);
     #if defined(HAS_ATTRIBUTE_UV2)
         o.tex.zw = TRANSFORM_TEX(((_UVSec == 2) ? v.uv2 : o.tex.zw), _MainTex);
@@ -252,7 +248,7 @@ float4 boxmap( TEXTURE2D_PARAM(tex, smp), float3 p, float3 n, float k )
     if (m.y > 0) y = SAMPLE_TEXTURE2D_GRAD( tex, smp, p.zx, dpdx.zx, dpdy.zx );
     float4 z = 0.0;
     if (m.z > 0) z = SAMPLE_TEXTURE2D_GRAD( tex, smp, p.xy, dpdx.xy, dpdy.xy );
-    
+
     // and blend
     return (x*m.x + y*m.y + z*m.z) / (m.x + m.y + m.z);
 }
@@ -298,12 +294,12 @@ float3 PDNormalBlend(float3 n1, float3 n2, float alpha)
 }
 
 void addLayer(float weight, float2 uv, float4 uv_ST,
-    TEXTURE2D_PARAM(tex_A, smp_A), inout float4 albedoAlpha, float4 tint, 
-    TEXTURE2D_PARAM(tex_N, smp_N), inout float3 normal, float scale, 
+    TEXTURE2D_PARAM(tex_A, smp_A), inout float4 albedoAlpha, float4 tint,
+    TEXTURE2D_PARAM(tex_N, smp_N), inout float3 normal, float scale,
     TEXTURE2D_PARAM(tex_M, smp_M), inout float4 props,
     inout float4 maskProps)
 {
-    if (weight > 0)  
+    if (weight > 0)
     {
         uv = uv * uv_ST.xy + uv_ST.zw;
 
@@ -372,10 +368,10 @@ void addLayerTriplanar(float weight, float3 p, float3 n, float4 uv_ST,
     }
 }
 
-	// The material function itself!  You can alter the code below to add extra properties. 
+	// The material function itself!  You can alter the code below to add extra properties.
 inline MaterialInputs BlendedMaterialSetup (inout float4 i_tex, float4 tangentToWorld[3],
  float3 i_posWorld, float4 i_color)
-{   
+{
     // Blend weights in vertex colours
     fixed3 weights = i_color;
     #if defined(_SPLATMAP)
@@ -390,7 +386,7 @@ inline MaterialInputs BlendedMaterialSetup (inout float4 i_tex, float4 tangentTo
         dot(float4(i_posWorld.xyz, 1), _UVTransform1),
         dot(float4(i_posWorld.xyz, 1), _UVTransform2)
         );
-        
+
     if (_WeightFromDirection)
     {
         weights = (abs(worldNormalT));
@@ -422,53 +418,53 @@ inline MaterialInputs BlendedMaterialSetup (inout float4 i_tex, float4 tangentTo
     float4 m = 0;
 
 #if defined(_TRIPLANAR)
-    addLayerTriplanar(baseLayerWeight, worldPosT, worldNormalT, _MainTexA_ST, 
+    addLayerTriplanar(baseLayerWeight, worldPosT, worldNormalT, _MainTexA_ST,
         TEXTURE2D_ARGS(_MainTexA, sampler_MainTexR), c, _ColorA,
         TEXTURE2D_ARGS(_BumpMapA, sampler_BumpMapR), n, _BumpScaleA,
-        TEXTURE2D_ARGS(_MaskMapA, sampler_MaskMapR), m, 
-        _PropertiesA); 
-    addLayerTriplanar(weights.r, worldPosT, worldNormalT, _MainTexR_ST, 
+        TEXTURE2D_ARGS(_MaskMapA, sampler_MaskMapR), m,
+        _PropertiesA);
+    addLayerTriplanar(weights.r, worldPosT, worldNormalT, _MainTexR_ST,
         TEXTURE2D_ARGS(_MainTexR, sampler_MainTexR), c, _ColorR,
         TEXTURE2D_ARGS(_BumpMapR, sampler_BumpMapR), n, _BumpScaleR,
-        TEXTURE2D_ARGS(_MaskMapR, sampler_MaskMapR), m, 
+        TEXTURE2D_ARGS(_MaskMapR, sampler_MaskMapR), m,
         _PropertiesR);
-    addLayerTriplanar(weights.g, worldPosT, worldNormalT, _MainTexG_ST, 
+    addLayerTriplanar(weights.g, worldPosT, worldNormalT, _MainTexG_ST,
         TEXTURE2D_ARGS(_MainTexG, sampler_MainTexR), c, _ColorG,
         TEXTURE2D_ARGS(_BumpMapG, sampler_BumpMapR), n, _BumpScaleG,
-        TEXTURE2D_ARGS(_MaskMapG, sampler_MaskMapR), m, 
+        TEXTURE2D_ARGS(_MaskMapG, sampler_MaskMapR), m,
         _PropertiesG);
-    addLayerTriplanar(weights.b, worldPosT, worldNormalT, _MainTexB_ST, 
+    addLayerTriplanar(weights.b, worldPosT, worldNormalT, _MainTexB_ST,
         TEXTURE2D_ARGS(_MainTexB, sampler_MainTexR), c, _ColorB,
         TEXTURE2D_ARGS(_BumpMapB, sampler_BumpMapR), n, _BumpScaleB,
-        TEXTURE2D_ARGS(_MaskMapB, sampler_MaskMapR), m, 
+        TEXTURE2D_ARGS(_MaskMapB, sampler_MaskMapR), m,
         _PropertiesB);
 #else
-    addLayer(baseLayerWeight, i_tex.xy, _MainTexA_ST, 
+    addLayer(baseLayerWeight, i_tex.xy, _MainTexA_ST,
         TEXTURE2D_ARGS(_MainTexA, sampler_MainTexR), c, _ColorA,
         TEXTURE2D_ARGS(_BumpMapA, sampler_BumpMapR), n, _BumpScaleA,
-        TEXTURE2D_ARGS(_MaskMapA, sampler_MaskMapR), m, 
+        TEXTURE2D_ARGS(_MaskMapA, sampler_MaskMapR), m,
         _PropertiesA);
-    addLayer(weights.r, i_tex.xy, _MainTexR_ST, 
+    addLayer(weights.r, i_tex.xy, _MainTexR_ST,
         TEXTURE2D_ARGS(_MainTexR, sampler_MainTexR), c, _ColorR,
         TEXTURE2D_ARGS(_BumpMapR, sampler_BumpMapR), n, _BumpScaleR,
-        TEXTURE2D_ARGS(_MaskMapR, sampler_MaskMapR), m, 
+        TEXTURE2D_ARGS(_MaskMapR, sampler_MaskMapR), m,
         _PropertiesR);
-    addLayer(weights.g, i_tex.xy, _MainTexG_ST, 
+    addLayer(weights.g, i_tex.xy, _MainTexG_ST,
         TEXTURE2D_ARGS(_MainTexG, sampler_MainTexR), c, _ColorG,
         TEXTURE2D_ARGS(_BumpMapG, sampler_BumpMapR), n, _BumpScaleG,
-        TEXTURE2D_ARGS(_MaskMapG, sampler_MaskMapR), m, 
+        TEXTURE2D_ARGS(_MaskMapG, sampler_MaskMapR), m,
         _PropertiesG);
-    addLayer(weights.b, i_tex.xy, _MainTexB_ST, 
+    addLayer(weights.b, i_tex.xy, _MainTexB_ST,
         TEXTURE2D_ARGS(_MainTexB, sampler_MainTexR), c, _ColorB,
         TEXTURE2D_ARGS(_BumpMapB, sampler_BumpMapR), n, _BumpScaleB,
-        TEXTURE2D_ARGS(_MaskMapB, sampler_MaskMapR), m, 
+        TEXTURE2D_ARGS(_MaskMapB, sampler_MaskMapR), m,
         _PropertiesB);
 #endif
 
     half metallic = m.x;
     half occlusion =  m.y;
     half emissionMask = m.z;
-    half smoothness = m.w; 
+    half smoothness = m.w;
 
     MaterialInputs material = (MaterialInputs)0;
     initMaterial(material);
@@ -551,7 +547,7 @@ half4 fragForwardAddTemplate (VertexOutputForwardAdd i)
 
 half4 fragBase (VertexOutputForwardBase i) : SV_Target { return fragForwardBaseTemplate(i); }
 half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemplate(i); }
-    #endif 
+    #endif
 
     ENDCG
 
@@ -581,14 +577,14 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             #pragma shader_feature_local _SPECULARHIGHLIGHTS_OFF
             #pragma shader_feature_local _GLOSSYREFLECTIONS_OFF
             #pragma shader_feature_local _LIGHTMAPSPECULAR
-            
+
             #pragma shader_feature_local _ _BAKERY_RNM _BAKERY_SH _BAKERY_MONOSH
             #pragma shader_feature_local _LTCGI
             #pragma shader_feature_local _VRCLV
             #pragma shader_feature_local _SPLATMAP
             #pragma shader_feature_local _TRIPLANAR
             #pragma shader_feature_local _STOCHASTIC
-            
+
             #pragma shader_feature_local _DEBUG_VIEWWEIGHTS
 
             #pragma multi_compile_fwdbase
@@ -639,7 +635,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
 
             ENDCG
         }
-        
+
         // ------------------------------------------------------------------
         //  Shadow rendering pass
         Pass {
@@ -657,7 +653,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
 
             #ifndef UNITY_PASS_SHADOWCASTER
             #define UNITY_PASS_SHADOWCASTER
-            #endif  
+            #endif
 
             #pragma shader_feature_local _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
             #pragma multi_compile_shadowcaster
@@ -680,7 +676,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             Cull Off
             AlphaToMask Off
             CGPROGRAM
-            
+
             #define REQUIRE_META_WORLDPOS
 
             #include "Packages/s-ilent.filamented/Filamented/UnityStandardMeta.cginc"
@@ -692,7 +688,7 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
                 MaterialInputs material = SETUP_BRDF_INPUT (i.uv);
                 float4 dummy[3]; dummy[0] = 1; dummy[1] = 0; dummy[2] = 0;
                 material = BlendedMaterialSetup(i.uv, dummy, i.worldPos, i.color);
-                
+
                 PixelParams pixel = (PixelParams)0;
                 getCommonPixelParams(material, pixel);
 
