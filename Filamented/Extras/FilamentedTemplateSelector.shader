@@ -29,6 +29,7 @@ Shader "Silent/Filamented Extras/Filamented Selector"
         [Enum(Red, 0, Green, 1, Blue, 2, Alpha, 3)]_EmissionSelect("Emission Mask Channel", Range(0, 3)) = 2
         _Emission("Emission Power", Float) = 0
         _EmissionColor("Emission Tint", Color) = (1,1,1,1)
+        _EmissionFluro("Emission Edge Fade Intensity", Range(0, 1)) = 0.0
         [Space]
         [IfDef(_SHADING_ANISOTROPY)][HeaderEx(Anisotropy Properties)]
         _Anisotropy("Anisotropy", Range(-1, 1)) = 0.5
@@ -42,13 +43,14 @@ Shader "Silent/Filamented Extras/Filamented Selector"
         [SingleLine][NoScaleOffset]_ThicknessMap("Thickness Map", 2D) = "white" {}
         [IfDef(_SHADING_SUBSURFACE)]_ThicknessScale("Thickness", Range(0, 1)) = 0.5
         [IfDef(_SHADING_SUBSURFACE)]_SubsurfacePower("Subsurface Power", Float) = 12.234
-        [IfDef(_SHADING_SUBSURFACE)]_SubsurfaceColor("Subsurface Color", Color) = (1.0, 1.0, 1.0, 1.0)
+        [IfDef(_SHADING_SUBSURFACE,_SHADING_CLOTH)]_SubsurfaceColor("Subsurface Color", Color) = (1.0, 1.0, 1.0, 1.0)
+        [IfDef(_SHADING_SUBSURFACE,_SHADING_CLOTH)][ToggleUI]_AutoSubsurfaceColor("Subsurface Colour from Albedo", Float) = 1
         [Space]
         [HeaderEx(Emission Texture)]
         [NoScaleOffset][SetKeywordSingleLine(_ADD_EMISSION)]_EmissionMap("Emission Map", 2D) = "black" {}
         _EmissionMapPower("Emission Map Intensity", Float) = 1.0
         [Space]
-        [HeaderEx(Details)]
+        [HeaderEx(Detail Mapping)]
         _DetailBlendWeight("Blend Weight", Range(0, 1)) = 1
         [HideInInspector][Enum(Multiply2x, 0, Multiply, 1, Additive, 2, AlphaBlend, 3)]_DetailBlendMode("Blend Mode", Float) = 0.0
         [ScaleOffset][SingleLine(_DetailBlendMode)]_MainTexDetail("Albedo Detail", 2D) = "gray" {}
@@ -65,10 +67,9 @@ Shader "Silent/Filamented Extras/Filamented Selector"
 		[IfDef(_DTRIPLANAR)]_TriplanarOffset0y ("Y Axis Offset", float) = 0
 		[IfDef(_DTRIPLANAR)]_TriplanarOffset0z ("X Axis Offset", float) = 0
         [Space]
-        _EmissionFluro("Emission Edge Fade Intensity", Range(0, 1)) = 0.0
-        [Space]
-        [SingleLine]_IridescenceRamp("Specular Iridescence Ramp", 2D) = "white" {}
-        _IridescenceAmount("Iridescence Amount", Range(0, 1)) = 0
+        [HeaderEx(Complex Material)]
+        [IfNDef(_SHADING_SUBSURFACE,_SHADING_CLOTH,_SHADING_SUBSURFACE)][SingleLine]_IridescenceRamp("Specular Iridescence Ramp", 2D) = "white" {}
+        [IfNDef(_SHADING_SUBSURFACE,_SHADING_CLOTH,_SHADING_SUBSURFACE)]_IridescenceAmount("Iridescence Amount", Range(0, 1)) = 0
         [Space]
         [SingleLine]_WetnessMap("Wetness Mask (R)", 2D) = "white" {}
         _WetnessAmount("Wetness Amount", Range(0, 1)) = 0.0
@@ -77,6 +78,12 @@ Shader "Silent/Filamented Extras/Filamented Selector"
         [IfDef(_USE_CLEARCOAT)][SingleLine]_ClearCoatMap("Clear Coat Map (R: Intensity, G: Roughness)", 2D) = "white" {}
         [IfDef(_USE_CLEARCOAT)]_ClearCoat("Clear Coat Intensity", Range(0, 1)) = 0.0
         [IfDef(_USE_CLEARCOAT)]_ClearCoatRoughness("Clear Coat Roughness", Range(0, 1)) = 0.0
+        [Space]
+        [IfNDef(_SHADING_SUBSURFACE,_SHADING_CLOTH)][Toggle(_USE_SHEEN)]_SheenMode("Sheen", Float) = 0
+        [IfNDef(_SHADING_SUBSURFACE,_SHADING_CLOTH)][IfDef(_USE_SHEEN)][SingleLine]_SheenMap("Sheen Map (R: Intensity, G: Roughness)", 2D) = "white" {}
+        [IfNDef(_SHADING_SUBSURFACE,_SHADING_CLOTH)][IfDef(_USE_SHEEN)]_SheenColor("Sheen Color", Color) = (1.0, 1.0, 1.0, 1.0)
+        [IfNDef(_SHADING_SUBSURFACE,_SHADING_CLOTH)][IfDef(_USE_SHEEN)][ToggleUI]_AutoSheenColor("Sheen Colour from Albedo", Float) = 1
+        [IfNDef(_SHADING_SUBSURFACE,_SHADING_CLOTH)][IfDef(_USE_SHEEN)]_SheenRoughness("Sheen Roughness", Range(0, 1)) = 0.8
         [Space]
         [HeaderEx(System)]
         [Toggle(_LIGHTMAPSPECULAR)]_LightmapSpecular("Lightmap Specular", Range(0, 1)) = 1
@@ -110,6 +117,7 @@ Shader "Silent/Filamented Extras/Filamented Selector"
         #pragma shader_feature_local_fragment _ _ADD_EMISSION
         #pragma shader_feature_local_fragment _SHADING_STANDARD _SHADING_CLOTH _SHADING_ANISOTROPY _SHADING_GLINT _SHADING_SUBSURFACE
         #pragma shader_feature_local_fragment _ _USE_CLEARCOAT
+        #pragma shader_feature_local_fragment _ _USE_SHEEN
 
         #pragma skip_variants _METALLICGLOSSMAP _NORMALMAP _EMISSION
 
@@ -120,7 +128,8 @@ Shader "Silent/Filamented Extras/Filamented Selector"
 
         #if defined(_SHADING_CLOTH)
             #define SHADING_MODEL_CLOTH
-            #define MATERIAL_HAS_SHEEN_COLOR
+            #define MATERIAL_HAS_SUBSURFACE_COLOR
+            #undef _USE_SHEEN // Not supported.
         #endif
 
         #if defined(_SHADING_ANISOTROPY)
@@ -133,15 +142,23 @@ Shader "Silent/Filamented Extras/Filamented Selector"
 
         #if defined(_SHADING_SUBSURFACE)
             #define SHADING_MODEL_SUBSURFACE
+            #undef _USE_SHEEN // Not supported.
         #endif
 
         #if defined(_USE_CLEARCOAT)
        	    #define MATERIAL_HAS_CLEAR_COAT
         #endif
 
+        #if defined(_USE_SHEEN)
+       	    #define MATERIAL_HAS_SHEEN_COLOR
+        #endif
+
+        #if defined(_SHADING_STANDARD) || defined(_SHADING_ANISOTROPY) || defined(_SHADING_GLINT)
     	#define SHADING_MODEL_SPECULAR_GLOSSINESS
     	// If this is not defined, the material will default to metallic/roughness workflow.
         // This is used to control the specular colour for iridescence.
+        // However, it is not supported for cloth or subsurface shading.
+        #endif
 
     	#define MATERIAL_HAS_NORMAL
     	// If this is not defined, normal maps won't be enabled.
@@ -190,6 +207,7 @@ Shader "Silent/Filamented Extras/Filamented Selector"
 	uniform half _SmoothnessScale;
 	uniform half _Emission;
 	// uniform half3 _EmissionColor;
+    uniform half _EmissionFluro;
 
     uniform sampler2D _MainTexDetail;
     uniform sampler2D _MOESMapDetail;
@@ -214,8 +232,6 @@ Shader "Silent/Filamented Extras/Filamented Selector"
     uniform half _EmissionMapPower;
     #endif
 
-    uniform half _EmissionFluro;
-
     #ifdef _SHADING_ANISOTROPY
     uniform half _Anisotropy;
     uniform sampler2D _AnisotropyDirectionMap;
@@ -231,6 +247,12 @@ Shader "Silent/Filamented Extras/Filamented Selector"
     uniform half _ThicknessScale;
     uniform half _SubsurfacePower;
     uniform half4 _SubsurfaceColor;
+    uniform half _AutoSubsurfaceColor;
+    #endif
+
+    #ifdef _SHADING_CLOTH
+    uniform half4 _SubsurfaceColor;
+    uniform half _AutoSubsurfaceColor;
     #endif
 
     uniform sampler2D _IridescenceRamp;
@@ -244,6 +266,13 @@ Shader "Silent/Filamented Extras/Filamented Selector"
     uniform sampler2D _ClearCoatMap;
     uniform half _ClearCoat;
     uniform half _ClearCoatRoughness;
+    #endif
+
+    #if defined(_USE_SHEEN)
+    uniform sampler2D _SheenMap;
+    uniform half4 _SheenColor;
+    uniform half _SheenRoughness;
+    uniform half _AutoSheenColor;
     #endif
 
 	// Vertex functions are called from UnityStandardCore.
@@ -312,7 +341,7 @@ half4 SampleIridescence(half NoV, half rampID)
 }
 
 	// The material function itself!  You can alter the code below to add extra properties.
-inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half i_NoV, half3 i_viewDirForParallax,
+inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half3 i_viewDirForParallax,
     float4 tangentToWorld[3], float3 i_posWorld)
 {
     half4 baseColor = tex2D (_MainTex, i_tex.xy) * _Color;
@@ -364,6 +393,19 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     clearCoatRoughness = ccMap.g * _ClearCoatRoughness;
     #endif
 
+    // In Cloth mode, use metalness for sheen.
+    half3 sheenColor = lerp(baseColor*baseColor, sqrt(baseColor), metallic);
+    half sheenRoughness = 1.0h;
+
+    #if defined(_USE_SHEEN)
+    if (_AutoSheenColor != 0)
+        sheenColor = 1.0h;
+
+    half4 sheenMap = tex2D(_SheenMap, i_tex.xy);
+    sheenColor = sheenColor * _SheenColor.rgb * sheenMap.r;
+    sheenRoughness = _SheenRoughness * sheenMap.g;
+    #endif
+
     if (_WetnessAmount > 0)
     {
         half wetness = tex2D(_WetnessMap, i_tex.xy).r * _WetnessAmount;
@@ -383,19 +425,23 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
         clearCoatRoughness = lerp(clearCoatRoughness, 0.05, wetness);
     }
 
-    half3 specColor;
-    half oneMinusReflectivity;
-    half3 diffColor = DiffuseAndSpecularFromMetallic(baseColor.rgb, metallic, specColor, oneMinusReflectivity);
-
     MaterialInputs material = (MaterialInputs)0;
     initMaterial(material);
-    material.baseColor = half4(diffColor, 1.0h);
-    #if defined(_SHADING_CLOTH)
+
+    #if defined(SHADING_MODEL_SPECULAR_GLOSSINESS)
+    material.baseColor = baseColor;
+    material.specularColor = baseColor * metallic;
+    material.glossiness = smoothness;
+    #else
+    material.baseColor = baseColor;
+    #if defined(SHADING_MODEL_CLOTH)
     material.sheenColor = lerp(baseColor*baseColor, sqrt(baseColor), metallic);
     #else
-    material.specularColor = specColor;
+    material.metallic = metallic;
     #endif
-    material.glossiness = smoothness;
+    material.roughness = computeRoughnessFromGlossiness(smoothness);
+    #endif
+
     material.normal = normalTangent;
     material.emissive.rgb = emission;
     material.emissive.a = 1.0;
@@ -415,10 +461,16 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     material.glintDensity = internal_density;
     #endif
 
+    #if defined(_SHADING_SUBSURFACE) || defined(_SHADING_CLOTH)
+    half3 subsurfaceColor = 1.0h;
+    if (_AutoSubsurfaceColor != 0)
+        subsurfaceColor = lerp(baseColor*baseColor, sqrt(baseColor), metallic);
+    material.subsurfaceColor = subsurfaceColor * _SubsurfaceColor.rgb;
+    #endif
+
     #if defined(_SHADING_SUBSURFACE)
     material.thickness = tex2D(_ThicknessMap, i_tex.xy).r * _ThicknessScale;
     material.subsurfacePower = _SubsurfacePower;
-    material.subsurfaceColor = _SubsurfaceColor.rgb;
     #endif
 
     #if defined(_USE_CLEARCOAT)
@@ -426,10 +478,27 @@ inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half
     material.clearCoatRoughness = clearCoatRoughness;
     #endif
 
+    #if defined(_USE_SHEEN) && !defined(SHADING_MODEL_CLOTH)
+    material.sheenColor = sheenColor;
+    material.sheenRoughness = sheenRoughness;
+    #endif
+
     return material;
 }
 
-half4 fragForwardBaseTemplate (VertexOutputForwardBase i)
+inline void applyIridescence(const ShadingParams shading, inout MaterialInputs material)
+{
+    #if defined(SHADING_MODEL_SPECULAR_GLOSSINESS)
+    if (_IridescenceAmount > 0)
+    {
+
+        half4 specIridescence = lerp(half4(1.0.xxx, 0.0), SampleIridescence(shading.NoV, 0), _IridescenceAmount);
+        material.specularColor *= specIridescence.rgb;
+    }
+    #endif
+}
+
+half4 fragForwardBaseTemplate (VertexOutputForwardBase i, bool facing)
 {
     UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
 
@@ -448,18 +517,13 @@ half4 fragForwardBaseTemplate (VertexOutputForwardBase i)
 
     // Your material setup goes here.
     MaterialInputs material =
-    MyMaterialSetup(i.tex, i.eyeVec.xyz, shading.NoV, IN_VIEWDIR4PARALLAX(i), i.tangentToWorldAndPackedData, IN_WORLDPOS(i));
+    MyMaterialSetup(i.tex, i.eyeVec.xyz, IN_VIEWDIR4PARALLAX(i), i.tangentToWorldAndPackedData, IN_WORLDPOS(i));
 
     prepareMaterial(shading, material);
 
     material.emissive *= EmissionFluro(shading.NoV);
 
-    if (_IridescenceAmount > 0)
-    {
-        half4 specIridescence = lerp(half4(1.0.xxx, 0.0), SampleIridescence(shading.NoV, 0), _IridescenceAmount);
-        material.specularColor *= specIridescence.rgb;
-    	material.baseColor *= 1.0 - specIridescence.a;
-    }
+    applyIridescence(shading, material);
 
 #if (defined(_NORMALMAP) && defined(NORMALMAP_SHADOW))
     float noise = noiseR2(i.pos.xy);
@@ -474,7 +538,7 @@ half4 fragForwardBaseTemplate (VertexOutputForwardBase i)
     return c;
 }
 
-half4 fragForwardAddTemplate (VertexOutputForwardAdd i)
+half4 fragForwardAddTemplate (VertexOutputForwardAdd i, bool facing)
 {
     UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
 
@@ -488,16 +552,11 @@ half4 fragForwardAddTemplate (VertexOutputForwardAdd i)
 
     // Your material setup goes here.
     MaterialInputs material =
-    MyMaterialSetup(i.tex, i.eyeVec.xyz, shading.NoV, IN_VIEWDIR4PARALLAX_FWDADD(i), i.tangentToWorldAndLightDir, IN_WORLDPOS_FWDADD(i));
+    MyMaterialSetup(i.tex, i.eyeVec.xyz, IN_VIEWDIR4PARALLAX_FWDADD(i), i.tangentToWorldAndLightDir, IN_WORLDPOS_FWDADD(i));
 
     prepareMaterial(shading, material);
 
-    if (_IridescenceAmount > 0)
-    {
-        half4 specIridescence = lerp(half4(1.0.xxx, 0.0), SampleIridescence(shading.NoV, 0), _IridescenceAmount);
-        material.specularColor *= specIridescence.rgb;
-    	material.baseColor *= 1.0 - specIridescence.a;
-    }
+    applyIridescence(shading, material);
 
 #if (defined(_NORMALMAP) && defined(NORMALMAP_SHADOW))
     float noise = noiseR2(i.pos.xy);
@@ -512,8 +571,11 @@ half4 fragForwardAddTemplate (VertexOutputForwardAdd i)
     return c;
 }
 
-half4 fragBase (VertexOutputForwardBase i) : SV_Target { return fragForwardBaseTemplate(i); }
-half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemplate(i); }
+half4 fragBase (VertexOutputForwardBase i, bool f : SV_IsFrontFace) : SV_Target
+    { return fragForwardBaseTemplate(i, f); }
+half4 fragAdd (VertexOutputForwardAdd i, bool f : SV_IsFrontFace) : SV_Target
+    { return fragForwardAddTemplate(i, f); }
+
     #endif
 
     ENDCG
@@ -543,7 +605,6 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
             #pragma shader_feature_local_fragment _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
             #pragma shader_feature_local_fragment _ _SPECULARHIGHLIGHTS_OFF
             #pragma shader_feature_local_fragment _ _GLOSSYREFLECTIONS_OFF
-            #pragma shader_feature_local_fragment _ _LIGHTMAPSPECULAR
 
             #pragma shader_feature_local_fragment _ _BAKERY_RNM _BAKERY_SH _BAKERY_MONOSH
             #pragma shader_feature_local_fragment _LTCGI
@@ -670,9 +731,6 @@ half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemp
 
             #pragma vertex vert_meta
             #pragma fragment frag_meta2
-            #pragma shader_feature _EMISSION
-            #pragma shader_feature _METALLICGLOSSMAP
-            #pragma shader_feature ___ _DETAIL_MULX2
             ENDCG
         }
 
