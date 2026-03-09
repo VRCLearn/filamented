@@ -13,6 +13,7 @@
 
 #include "FilamentLightLTCGI.cginc"
 #include "FilamentLightVRCLV.cginc"
+#include "FilamentLightMirror.cginc"
 
 //------------------------------------------------------------------------------
 // Image based lighting configuration
@@ -965,6 +966,13 @@ void evaluateIBL(const ShadingParams shading, const MaterialInputs material, con
     // Not supported
     half3 E = half3(0.0); // TODO: fix for importance sampling
     Fr = isEvaluateSpecularIBL(pixel, shading.normal, shading.view, shading.NoV);
+#endif
+
+    // Support for using a mirror as a specular reflection source.
+#if defined(MIRROR_REFLECTION)
+    MirrorReflectionSampler mirrorSampler;
+    half4 mirrorSpecular = mirrorSampler.getFilteredMirrorRadiance(shading, pixel.roughness);
+    Fr = lerp(Fr, E * mirrorSpecular, mirrorSpecular.a);
 #endif
 
     // Ambient occlusion
