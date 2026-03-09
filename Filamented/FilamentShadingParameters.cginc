@@ -37,10 +37,13 @@ void computeShadingParams(inout ShadingParams shading, float3 vertex_worldNormal
     shading.position = vertex_worldPosition.xyz;
     shading.view = normalize(frameUniforms_cameraPosition - shading.position);
 
-    // we do this so we avoid doing (matrix multiply), but we burn 4 varyings:
-    //    p = clipFromWorldMatrix * shading.position;
-    //    shading.normalizedViewportCoord = p.xy * 0.5 / p.w + 0.5
-    shading.normalizedViewportCoord = vertex_position.xy * (0.5 / vertex_position.w) + 0.5;
+    float2 viewportUV = vertex_position.xy / _ScreenParams.xy;
+
+    #if defined(UNITY_SINGLE_PASS_STEREO)
+        viewportUV.x = viewportUV.x * 2.0 - float(unity_StereoEyeIndex);
+    #endif
+
+    shading.normalizedViewportCoord = viewportUV;
 }
 
 

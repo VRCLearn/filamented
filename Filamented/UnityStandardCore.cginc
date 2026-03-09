@@ -451,7 +451,13 @@ void computeShadingParamsForwardBase(inout ShadingParams shading, VertexOutputFo
     shading.geometricNormal = normalize(tangentToWorld[2].xyz);
     shading.tangentToWorld = transpose(tangentToWorld);
 
-    shading.normalizedViewportCoord = i.pos.xy * (0.5 / i.pos.w) + 0.5;
+    float2 viewportUV = i.pos.xy / _ScreenParams.xy;
+
+    #if defined(UNITY_SINGLE_PASS_STEREO)
+        viewportUV.x = viewportUV.x * 2.0 - float(unity_StereoEyeIndex);
+    #endif
+
+    shading.normalizedViewportCoord = viewportUV;
 
     shading.normal = shading.geometricNormal;
     shading.position = IN_WORLDPOS(i);
@@ -645,7 +651,14 @@ void computeShadingParamsForwardAdd(inout ShadingParams shading, VertexOutputFor
     shading.geometricNormal = normalize(tangentToWorld[2].xyz);
     shading.tangentToWorld = transpose(tangentToWorld);
 
-    shading.normalizedViewportCoord = i.pos.xy * (0.5 / i.pos.w) + 0.5;
+    float2 viewportUV = i.pos.xy / _ScreenParams.xy;
+
+    #if defined(UNITY_SINGLE_PASS_STEREO)
+        viewportUV.x = viewportUV.x * 2.0 - float(unity_StereoEyeIndex);
+    #endif
+
+    shading.normalizedViewportCoord = viewportUV;
+
     shading.normal = normalize(shading.geometricNormal);
     shading.position = IN_WORLDPOS_FWDADD(i);
     shading.view = -NormalizePerPixelNormal(i.eyeVec);
