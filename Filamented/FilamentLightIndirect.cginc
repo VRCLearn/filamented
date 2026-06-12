@@ -893,11 +893,9 @@ void applyRefraction(
     half3 Ft = UnityGI_prefilteredRadiance(unityData, perceptualRoughness, ray.direction) * iblLuminance;
 #else
     // compute the point where the ray exits the medium, if needed
-    //half4 p = half4(frameUniforms.clipFromWorldMatrix * half4(ray.position, 1.0));
-    //p.xy = uvToRenderTargetUV(p.xy * (0.5 / p.w) + 0.5);
-    half4 p = UnityWorldToClipPos(half4(ray.position, 1.0));
-    p.w =  (0.5 / p.w);
-    p.xy = ComputeGrabScreenPos(p);
+    float4 clipPos = UnityWorldToClipPos(float4(ray.position, 1.0));
+    float4 screenPos = ComputeGrabScreenPos(clipPos);
+    float2 uv = screenPos.xy / screenPos.w;
 
     // perceptualRoughness to LOD
     // Empirical factor to compensate for the gaussian approximation of Dggx, chosen so
@@ -908,7 +906,7 @@ void applyRefraction(
     half tweakedPerceptualRoughness = perceptualRoughness;
     half lod = max(0.0, 2.0 * log2(tweakedPerceptualRoughness) + refractionLodOffset);
 
-    half3 Ft = UNITY_SAMPLE_TEX2D_LOD(REFRACTION_SOURCE, p.xy, lod).rgb * REFRACTION_MULTIPLIER;
+    half3 Ft = UNITY_SAMPLE_TEX2D_LOD(REFRACTION_SOURCE, uv, lod).rgb * REFRACTION_MULTIPLIER;
 #endif
 
     // base color changes the amount of light passing through the boundary
