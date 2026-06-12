@@ -1,4 +1,4 @@
-Shader "Silent/Filamented Mirror Template"
+Shader "Silent/Filamented Extras/Filamented Template (VRC Mirror Reflection)"
 {
     Properties
     {

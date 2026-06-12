@@ -7,7 +7,7 @@ similar to a Unity surface shader - but with less jank.
 Instead of reading multiple seperate maps, it just asks for
 an albedo map, a normal map, and a MOES map.
 */
-Shader "Silent/Filamented Extras/Filamented Refraction"
+Shader "Silent/Filamented Extras/Filamented Template (Refraction)"
 {
     Properties
     {

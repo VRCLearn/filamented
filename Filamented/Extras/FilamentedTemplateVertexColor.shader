@@ -9,7 +9,7 @@ an albedo map, a normal map, and a MOES map.
 This version adds vertex colours, and also shows some examples of
 how to use the custom material editor from Filamented Extras.
 */
-Shader "Silent/Filamented Template (Vertex Color)"
+Shader "Silent/Filamented Extras/Filamented Template (Vertex Color)"
 {
     Properties
     {
