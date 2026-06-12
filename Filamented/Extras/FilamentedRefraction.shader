@@ -1,0 +1,665 @@
+Shader "Silent/Filamented Extras/Filamented Refraction"
+{
+    Properties
+    {
+        [CheckDFGTexture]
+        [BlendModeSelector(_SrcBlend, _DstBlend, _CustomRenderQueue, _ZWrite, _AtoCmode)] _Mode ("__mode", Float) = 0.0
+        [Enum(UnityEngine.Rendering.CullMode)]_CullMode("Cull Mode", Int) = 2
+
+        [HeaderEx(Base Material)]
+        [ScaleOffset][SingleLine(_Color)]_MainTex("Albedo", 2D) = "white" {}
+        [HideInInspector]_Color("Color", Color) = (1,1,1,1)
+        [SingleLine(_BumpScale)][Normal] _BumpMap("Normal", 2D) = "bump" {}
+        [HideInInspector]_BumpScale("Normal Scale", Float) = 1
+        [Space]
+        [SingleLine]_MOESMap("Property Map", 2D) = "white" {}
+        [Space]
+        [Enum(Red, 0, Green, 1, Blue, 2, Alpha, 3)]_MetallicSelect("Metallic Channel", Range(0, 3)) = 0
+        _MetallicScale("Metallic Scale", Range( 0 , 1)) = 0
+        [Space]
+        [Enum(Red, 0, Green, 1, Blue, 2, Alpha, 3)]_SmoothnessSelect("Smoothness Channel", Range(0, 3)) = 3
+        [Enum(Smoothness, 0, Roughness, 1)]_SmoothnessMode("Smoothness Mode", Float) = 0
+        _SmoothnessScale("Smoothness Scale", Range( 0 , 1)) = 0
+        [Space]
+        [Enum(Red, 0, Green, 1, Blue, 2, Alpha, 3)]_OcclusionSelect("Occlusion Channel", Range(0, 3)) = 1
+        _OcclusionScale("Occlusion Scale", Range( 0 , 1)) = 0
+        [Space]
+        [Enum(Red, 0, Green, 1, Blue, 2, Alpha, 3)]_EmissionSelect("Emission Mask Channel", Range(0, 3)) = 2
+        _Emission("Emission Power", Float) = 0
+        _EmissionColor("Emission Tint", Color) = (1,1,1,1)
+        _EmissionFluro("Emission Edge Fade Intensity", Range(0, 1)) = 0.0
+
+        [HeaderEx(Refraction Properties)]
+        [SetShaderPassToggle(Always, _USE_REFRACTION)]_UseRefraction("Screen Refraction (Enables Grab Pass)", Float) = 1
+        _Transmission("Transmission", Range(0, 1)) = 1.0
+        _Absorption("Absorption", Color) = (0, 0, 0, 0)
+        _IOR("IOR", Float) = 1.5
+        [KeywordEnum(Solid, Thin)]_Refraction("Refraction Type", Float) = 0
+        [SingleLine][NoScaleOffset]_ThicknessMap("Thickness Map", 2D) = "white" {}
+        _ThicknessScale("Thickness Scale", Range(0, 1)) = 0.5
+
+        [HeaderEx(Emission Texture)]
+        [NoScaleOffset][SetKeywordSingleLine(_ADD_EMISSION)]_EmissionMap("Emission Map", 2D) = "black" {}
+        _EmissionMapPower("Emission Map Intensity", Float) = 1.0
+
+        [HeaderEx(Detail Mapping)]
+        _DetailBlendWeight("Blend Weight", Range(0, 1)) = 1
+        [HideInInspector][Enum(Multiply2x, 0, Multiply, 1, Additive, 2, AlphaBlend, 3)]_DetailBlendMode("Blend Mode", Float) = 0.0
+        [ScaleOffset][SingleLine(_DetailBlendMode)]_MainTexDetail("Albedo Detail", 2D) = "gray" {}
+        [SingleLine(_BumpScaleDetail)][Normal] _BumpMapDetail("Normal Detail", 2D) = "bump" {}
+        [HideInInspector]_BumpScaleDetail("Normal Detail Scale", Float) = 1
+        [SingleLine]_MOESMapDetail("Property Map Detail", 2D) = "white" {}
+        [Space]
+        [Toggle(_DTRIPLANAR)]_UseDTriplanar("Triplanar Detail", Float) = 0.0
+        [IfDef(_DTRIPLANAR)]_TriplanarSharp("Blending Sharpness", Range(1, 10)) = 3
+		[IfDef(_DTRIPLANAR)]_TriplanarTiles0x ("X Axis Tiling", float) = 1
+		[IfDef(_DTRIPLANAR)]_TriplanarTiles0y ("Y Axis Tiling", float) = 1
+		[IfDef(_DTRIPLANAR)]_TriplanarTiles0z ("X Axis Tiling", float) = 1
+		[IfDef(_DTRIPLANAR)]_TriplanarOffset0x ("X Axis Offset", float) = 0
+		[IfDef(_DTRIPLANAR)]_TriplanarOffset0y ("Y Axis Offset", float) = 0
+		[IfDef(_DTRIPLANAR)]_TriplanarOffset0z ("X Axis Offset", float) = 0
+
+        [HeaderEx(Complex Material)]
+        [SingleLine]_IridescenceRamp("Specular Iridescence Ramp", 2D) = "white" {}
+        _IridescenceAmount("Iridescence Amount", Range(0, 1)) = 0
+        [Space]
+        [SingleLine]_WetnessMap("Wetness Mask (R)", 2D) = "white" {}
+        _WetnessAmount("Wetness Amount", Range(0, 1)) = 0.0
+        [Space]
+        [Toggle(_USE_CLEARCOAT)]_ClearCoatMode("Clear Coat", Float) = 0
+        [IfDef(_USE_CLEARCOAT)][SingleLine]_ClearCoatMap("Clear Coat Map (R: Intensity, G: Roughness)", 2D) = "white" {}
+        [IfDef(_USE_CLEARCOAT)]_ClearCoat("Clear Coat Intensity", Range(0, 1)) = 0.0
+        [IfDef(_USE_CLEARCOAT)]_ClearCoatRoughness("Clear Coat Roughness", Range(0, 1)) = 0.0
+        [Space]
+        [Toggle(_USE_SHEEN)]_SheenMode("Sheen", Float) = 0
+        [IfDef(_USE_SHEEN)][SingleLine]_SheenMap("Sheen Map (R: Intensity, G: Roughness)", 2D) = "white" {}
+        [IfDef(_USE_SHEEN)]_SheenColor("Sheen Color", Color) = (1.0, 1.0, 1.0, 1.0)
+        [IfDef(_USE_SHEEN)][ToggleUI]_AutoSheenColor("Sheen Colour from Albedo", Float) = 1
+        [IfDef(_USE_SHEEN)]_SheenRoughness("Sheen Roughness", Range(0, 1)) = 0.8
+
+        [HeaderEx(System)]
+        [Toggle(_LIGHTMAPSPECULAR)]_LightmapSpecular("Lightmap Specular", Range(0, 1)) = 1
+        [IfDef(_LIGHTMAPSPECULAR)]_LightmapSpecularMaxSmoothness("Lightmap Specular Max Smoothness", Range(0, 1)) = 1
+        _ExposureOcclusion("Lightmap Occlusion Sensitivity", Range(0, 1)) = 0.2
+        [Space]
+        [KeywordEnum(None, SH, RNM, MonoSH)] _Bakery ("Bakery Mode", Int) = 0
+        [HideInInspector]_RNM0("RNM0", 2D) = "black" {}
+        [HideInInspector]_RNM1("RNM1", 2D) = "black" {}
+        [HideInInspector]_RNM2("RNM2", 2D) = "black" {}
+        [Toggle(_LTCGI)] _LTCGI ("LTCGI", Int) = 0
+        [Toggle(_VRCLV)] _VRCLV ("VRC Light Volumes", Int) = 0
+        [IfDef(_VRCLV)] _VRCLVSurfaceBias("Light Volume Surface Bias", Range(0, 0.5)) = 0.05
+
+        [NonModifiableTextureData][HideInInspector] _DFG("DFG", 2D) = "white" {}
+        // Blending state
+        [HideInInspector] _SrcBlend ("__src", Float) = 1.0
+        [HideInInspector] _DstBlend ("__dst", Float) = 0.0
+        [HideInInspector] _CustomRenderQueue ("__rq", Float) = 1.0
+        [HideInInspector] _ZWrite ("__zw", Float) = 1.0
+        [HideInInspector] _AtoCmode("__atoc", Float) = 0
+    }
+
+    CustomEditor "Silent.FilamentedExtras.Unity.FilamentedExtrasInspector"
+
+    CGINCLUDE
+        #pragma shader_feature_local_fragment _ _DTRIPLANAR
+        #pragma shader_feature_local_fragment _ _ADD_EMISSION
+        #pragma shader_feature_local_fragment _ _USE_CLEARCOAT
+        #pragma shader_feature_local_fragment _ _USE_SHEEN
+        #pragma shader_feature_local_fragment _ _USE_REFRACTION
+        #pragma shader_feature_local_fragment _ _REFRACTION_THIN
+
+        #pragma skip_variants _METALLICGLOSSMAP _NORMALMAP _EMISSION
+
+        // First, setup what Filamented does.
+        // Filamented's behaviour is decided by the shading model and what material properties are defined.
+        // These are listed in FilamentMaterialInputs.
+        // You can set up and use anything in the initMaterials function.
+
+        #define SHADING_MODEL_SPECULAR_GLOSSINESS
+        // Specular glossiness workflow is defined to allow iridescence and advanced mapping options.
+
+        #define MATERIAL_HAS_NORMAL
+        // If this is not defined, normal maps won't be enabled.
+
+        #define MATERIAL_HAS_AMBIENT_OCCLUSION
+        // If this is not defined, occlusion won't be taken into account
+
+        #define MATERIAL_HAS_EMISSIVE
+        // If this is not defined, emission won't be taken into account
+
+        #if defined(_USE_CLEARCOAT)
+       	    #define MATERIAL_HAS_CLEAR_COAT
+        #endif
+
+        #if defined(_USE_SHEEN)
+       	    #define MATERIAL_HAS_SHEEN_COLOR
+        #endif
+
+        #define HAS_REFRACTION
+        // If this is defined, the material supports refraction.
+
+        #if defined(_USE_REFRACTION)
+            #define REFRACTION_MODE REFRACTION_MODE_SCREEN
+            #define REFRACTION_SOURCE _GrabTexture
+            #define REFRACTION_MULTIPLIER 1.0
+            // Default REFRACTION_TYPE is REFRACTION_TYPE_SOLID
+        #endif
+
+        #if defined(_REFRACTION_THIN)
+            #define REFRACTION_TYPE REFRACTION_TYPE_THIN
+            #define MATERIAL_HAS_MICRO_THICKNESS
+        #else
+            #define MATERIAL_HAS_THICKNESS
+        #endif
+
+        #define MATERIAL_HAS_TRANSMISSION
+        #define MATERIAL_HAS_ABSORPTION
+        #define MATERIAL_HAS_IOR
+        // These properties are controls for the refraction effect.
+
+        #define USE_DFG_LUT
+        // Whether to use the lookup texture for specular reflection calculation.
+        // Requires a shader property _DFG to be present and filled.
+    ENDCG
+
+    CGINCLUDE
+    #ifndef UNITY_PASS_SHADOWCASTER
+
+    // Include common files. These will include the other files as needed.
+    #include "Packages/s-ilent.filamented/Filamented/UnityLightingCommon.cginc"
+    #include "Packages/s-ilent.filamented/Filamented/UnityStandardInput.cginc"
+    #include "Packages/s-ilent.filamented/Filamented/UnityStandardConfig.cginc"
+    #include "Packages/s-ilent.filamented/Filamented/UnityStandardCore.cginc"
+
+    uniform sampler2D _MOESMap;
+
+    uniform half _MetallicSelect;
+    uniform half _SmoothnessSelect;
+    uniform half _SmoothnessMode;
+    uniform half _OcclusionSelect;
+    uniform half _EmissionSelect;
+
+	uniform half _MetallicScale;
+	uniform half _OcclusionScale;
+	uniform half _SmoothnessScale;
+	uniform half _Emission;
+    uniform half _EmissionFluro;
+
+    // Refraction specifics
+    uniform half _Transmission;
+    uniform half3 _Absorption;
+    uniform half _IOR;
+    uniform sampler2D _ThicknessMap;
+    uniform half _ThicknessScale;
+
+    uniform sampler2D _MainTexDetail;
+    uniform sampler2D _MOESMapDetail;
+    uniform sampler2D _BumpMapDetail;
+	uniform half _BumpScaleDetail;
+	uniform half _DetailBlendMode;
+	uniform half _DetailBlendWeight;
+    uniform half4 _MainTexDetail_ST;
+
+    #ifdef _DTRIPLANAR
+    uniform half _TriplanarTiles0x;
+    uniform half _TriplanarTiles0y;
+    uniform half _TriplanarTiles0z;
+    uniform half _TriplanarOffset0x;
+    uniform half _TriplanarOffset0y;
+    uniform half _TriplanarOffset0z;
+    uniform half _TriplanarSharp;
+    #endif
+
+    #ifdef _ADD_EMISSION
+    //uniform sampler2D _EmissionMap;
+    uniform half _EmissionMapPower;
+    #endif
+
+    uniform sampler2D _IridescenceRamp;
+    uniform half4 _IridescenceRamp_TexelSize;
+    uniform half _IridescenceAmount;
+
+    uniform sampler2D _WetnessMap;
+    uniform half _WetnessAmount;
+
+    #if defined(_USE_CLEARCOAT)
+    uniform sampler2D _ClearCoatMap;
+    uniform half _ClearCoat;
+    uniform half _ClearCoatRoughness;
+    #endif
+
+    #if defined(_USE_SHEEN)
+    uniform sampler2D _SheenMap;
+    uniform half4 _SheenColor;
+    uniform half _SheenRoughness;
+    uniform half _AutoSheenColor;
+    #endif
+
+	// Vertex functions are called from UnityStandardCore.
+	// You can alter values here, or copy the function in and modify it.
+	VertexOutputForwardBase vertBase (VertexInput v) { return vertForwardBase(v); }
+	VertexOutputForwardAdd vertAdd (VertexInput v) { return vertForwardAdd(v); }
+
+float4 boxmap(sampler2D tex, float3 p, float3 n, float k )
+{
+    // grab coord derivatives for texturing
+    float3 dpdx = ddx(p);
+    float3 dpdy = ddy(p);
+
+    float3 m = pow( abs(n), k );
+
+    // project+fetch
+    float4 x = 0.0;
+    if (m.x > 0) x = tex2Dgrad( tex, p.zy, dpdx.zy, dpdy.zy );
+    float4 y = 0.0;
+    if (m.y > 0) y = tex2Dgrad( tex, p.zx, dpdx.zx, dpdy.zx );
+    float4 z = 0.0;
+    if (m.z > 0) z = tex2Dgrad( tex, p.xy, dpdx.xy, dpdy.xy );
+
+    // and blend
+    return (x*m.x + y*m.y + z*m.z) / (m.x + m.y + m.z);
+}
+
+float3 applyDetailBlendMode(int blendOp, half3 a, half3 b, half t)
+{
+    switch(blendOp)
+    {
+        default:
+        case 0: // Multiply 2x
+            return a * LerpWhiteTo (b * unity_ColorSpaceDouble.rgb, t);
+        case 1: // Multiply
+            return a * LerpWhiteTo (b, t);
+        case 2: // Additive
+            return a + b * t;
+        case 3: // Alpha Blend
+            return lerp(a, b, t);
+    }
+}
+
+float3 RNMBlendUnpacked(float3 n1, float3 n2)
+{
+    n1 += float3( 0,  0, 1);
+    n2 *= float3(-1, -1, 1);
+    return n1*dot(n1, n2)/n1.z - n2;
+}
+
+inline float EmissionFluro(float NdotV)
+{
+    float fluroBase = saturate(pow(NdotV, 2));
+    return lerp(1.0 - _EmissionFluro, 1.0, fluroBase);
+}
+
+half4 SampleIridescence(half NoV, half rampID)
+{
+	if (any(_IridescenceRamp_TexelSize.zw > 6.0))
+	{
+		half rampIDUV = (1.0 - (floor(rampID * _IridescenceRamp_TexelSize.w) + 0.5) * _IridescenceRamp_TexelSize.y);
+		half2 rampUV = float2(NoV, rampIDUV);
+		return tex2D(_IridescenceRamp, rampUV);
+	}
+	return 1.0;
+}
+
+	// The material function itself!  You can alter the code below to add extra properties.
+inline MaterialInputs MyMaterialSetup (inout float4 i_tex, float3 i_eyeVec, half3 i_viewDirForParallax,
+    float4 tangentToWorld[3], float3 i_posWorld)
+{
+    half4 baseColor = tex2D (_MainTex, i_tex.xy) * _Color;
+    half4 packedMap = tex2D (_MOESMap, i_tex.xy);
+    half3 normalTangent = UnpackScaleNormal(tex2D (_BumpMap, i_tex.xy), _BumpScale);
+
+    #if defined(_DTRIPLANAR)
+    float triSharp = _TriplanarSharp;
+    float3 triPosition = i_posWorld * float3(_TriplanarTiles0x, _TriplanarTiles0y, _TriplanarTiles0z)
+        + float3(_TriplanarOffset0x, _TriplanarOffset0y, _TriplanarOffset0z);
+    half4 baseColorDetail = boxmap (_MainTexDetail, triPosition, tangentToWorld[2], triSharp);
+    half4 packedMapDetail = boxmap (_MOESMapDetail, triPosition, tangentToWorld[2], triSharp);
+    half3 normalTangentDetail = UnpackScaleNormal(boxmap (_BumpMapDetail, triPosition, tangentToWorld[2], triSharp), _BumpScaleDetail);
+    #else
+    float2 dUV = i_tex.xy * _MainTexDetail_ST.xy + _MainTexDetail_ST.zw;
+    half4 baseColorDetail = tex2D (_MainTexDetail, dUV);
+    half4 packedMapDetail = tex2D (_MOESMapDetail, dUV);
+    half3 normalTangentDetail = UnpackScaleNormal(tex2D (_BumpMapDetail, dUV), _BumpScaleDetail);
+    #endif
+
+    baseColor.rgb = applyDetailBlendMode(_DetailBlendMode, baseColor, baseColorDetail, _DetailBlendWeight);
+    normalTangent = lerp(normalTangent, RNMBlendUnpacked(normalTangent, normalTangentDetail), _DetailBlendWeight);
+    packedMap = lerp(packedMap, packedMap * packedMapDetail, saturate(_DetailBlendWeight));
+
+    half metallic = packedMap[_MetallicSelect] * _MetallicScale;
+    half occlusion = lerp(1, packedMap[_OcclusionSelect], _OcclusionScale);
+    half emissionMask = packedMap[_EmissionSelect];
+    half smoothness = packedMap[_SmoothnessSelect] * _SmoothnessScale;
+
+    smoothness = (_SmoothnessMode == 0) ? smoothness : 1.0 - smoothness;
+
+    half3 emission = baseColor.rgb * emissionMask * _Emission * _EmissionColor;
+
+    #if defined(_ADD_EMISSION)
+    half4 emissionMap = tex2D (_EmissionMap, i_tex.xy);
+    emission += emissionMap.rgb * _EmissionMapPower;
+    #endif
+
+    half clearCoat, clearCoatRoughness;
+    #if defined(_USE_CLEARCOAT)
+    half4 ccMap = tex2D(_ClearCoatMap, i_tex.xy);
+    clearCoat = ccMap.r * _ClearCoat;
+    clearCoatRoughness = ccMap.g * _ClearCoatRoughness;
+    #endif
+
+    half3 sheenColor = 1.0h;
+    half sheenRoughness = 1.0h;
+    #if defined(_USE_SHEEN)
+    if (_AutoSheenColor != 0)
+        sheenColor = lerp(baseColor.rgb*baseColor.rgb, sqrt(baseColor.rgb), metallic);
+    half4 sheenMap = tex2D(_SheenMap, i_tex.xy);
+    sheenColor = sheenColor * _SheenColor.rgb * sheenMap.r;
+    sheenRoughness = _SheenRoughness * sheenMap.g;
+    #endif
+
+    if (_WetnessAmount > 0)
+    {
+        half wetness = tex2D(_WetnessMap, i_tex.xy).r * _WetnessAmount;
+        half porosity = saturate((1.0 - metallic) * (1.0 - smoothness));
+        half waterDarken = wetness * porosity;
+
+        baseColor.rgb = lerp(baseColor.rgb, baseColor.rgb * baseColor.rgb, waterDarken * 0.5);
+        baseColor.rgb *= lerp(1.0, 0.2, waterDarken);
+        normalTangent = lerp(normalTangent, half3(0, 0, 1), wetness);
+        smoothness = lerp(smoothness, 0.95, wetness);
+
+        clearCoat = lerp(clearCoat, 1.0, wetness);
+        clearCoatRoughness = lerp(clearCoatRoughness, 0.05, wetness);
+    }
+
+    MaterialInputs material = (MaterialInputs)0;
+    initMaterial(material);
+
+    #if defined(SHADING_MODEL_SPECULAR_GLOSSINESS)
+    material.baseColor = baseColor;
+    material.specularColor = baseColor.rgb * metallic;
+    material.glossiness = smoothness;
+    #else
+    material.baseColor = baseColor;
+    material.metallic = metallic;
+    material.roughness = computeRoughnessFromGlossiness(smoothness);
+    #endif
+
+    material.normal = normalTangent;
+    material.emissive.rgb = emission;
+    material.emissive.a = 1.0;
+    material.ambientOcclusion = occlusion;
+
+    // Refraction variables
+    material.transmission = _Transmission;
+    material.absorption = _Absorption.rgb;
+    material.ior = _IOR;
+
+    half thicknessValue = tex2D(_ThicknessMap, i_tex.xy).r * _ThicknessScale;
+    #if defined(MATERIAL_HAS_MICRO_THICKNESS)
+        material.microThickness = thicknessValue;
+    #else
+        material.thickness = thicknessValue;
+    #endif
+
+    #if defined(_USE_CLEARCOAT)
+    material.clearCoat = clearCoat;
+    material.clearCoatRoughness = clearCoatRoughness;
+    #endif
+
+    #if defined(_USE_SHEEN)
+    material.sheenColor = sheenColor;
+    material.sheenRoughness = sheenRoughness;
+    #endif
+
+    return material;
+}
+
+inline void applyIridescence(const ShadingParams shading, inout MaterialInputs material)
+{
+    #if defined(SHADING_MODEL_SPECULAR_GLOSSINESS)
+    if (_IridescenceAmount > 0)
+    {
+        half4 specIridescence = lerp(half4(1.0.xxx, 0.0), SampleIridescence(shading.NoV, 0), _IridescenceAmount);
+        material.specularColor *= specIridescence.rgb;
+    }
+    #endif
+}
+
+half4 fragForwardBaseTemplate (VertexOutputForwardBase i)
+{
+    UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
+
+    UNITY_SETUP_INSTANCE_ID(i);
+    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+
+    ShadingParams shading = (ShadingParams)0;
+    // Initialize shading with expected parameters
+    computeShadingParamsForwardBase(shading, i);
+
+    UNITY_LIGHT_ATTENUATION(atten, i, shading.position);
+
+    #if defined(LIGHTMAP_ON) || defined(DYNAMICLIGHTMAP_ON)
+    GetBakedAttenuation(atten, i.ambientOrLightmapUV.xy, shading.position);
+    #endif
+
+    // Your material setup goes here.
+    MaterialInputs material =
+    MyMaterialSetup(i.tex, i.eyeVec.xyz, IN_VIEWDIR4PARALLAX(i), i.tangentToWorldAndPackedData, IN_WORLDPOS(i));
+
+    prepareMaterial(shading, material);
+
+    material.emissive *= EmissionFluro(shading.NoV);
+
+    applyIridescence(shading, material);
+
+#if (defined(_NORMALMAP) && defined(NORMALMAP_SHADOW))
+    float noise = noiseR2(i.pos.xy);
+    float nmShade = NormalTangentShadow (i.tex, i.lightDirTS, noise);
+    shading.attenuation = min(shading.attenuation, max(1-nmShade, 0));
+#endif
+
+    float4 c = evaluateMaterial (shading, material);
+
+    UNITY_EXTRACT_FOG_FROM_EYE_VEC(i);
+    UNITY_APPLY_FOG(_unity_fogCoord, c.rgb);
+    return c;
+}
+
+half4 fragForwardAddTemplate (VertexOutputForwardAdd i)
+{
+    UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
+
+    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+
+    ShadingParams shading = (ShadingParams)0;
+    // Initialize shading with expected parameters
+    computeShadingParamsForwardAdd(shading, i);
+
+    UNITY_LIGHT_ATTENUATION(atten, i, shading.position);
+
+    // Your material setup goes here.
+    MaterialInputs material =
+    MyMaterialSetup(i.tex, i.eyeVec.xyz, IN_VIEWDIR4PARALLAX_FWDADD(i), i.tangentToWorldAndLightDir, IN_WORLDPOS_FWDADD(i));
+
+    prepareMaterial(shading, material);
+
+    applyIridescence(shading, material);
+
+#if (defined(_NORMALMAP) && defined(NORMALMAP_SHADOW))
+    float noise = noiseR2(i.pos.xy);
+    float nmShade = NormalTangentShadow (i.tex, i.lightDirTS, noise);
+    shading.attenuation = min(shading.attenuation, max(1-nmShade, 0));
+#endif
+
+    float4 c = evaluateMaterial (shading, material);
+
+    UNITY_EXTRACT_FOG_FROM_EYE_VEC(i);
+    UNITY_APPLY_FOG_COLOR(_unity_fogCoord, c.rgb, half4(0,0,0,0)); // fog towards black in additive pass
+    return c;
+}
+
+half4 fragBase (VertexOutputForwardBase i) : SV_Target { return fragForwardBaseTemplate(i); }
+half4 fragAdd (VertexOutputForwardAdd i) : SV_Target { return fragForwardAddTemplate(i); }
+    #endif
+
+    ENDCG
+
+    SubShader
+    {
+        Tags { "RenderType"="Opaque" "PerformanceChecks"="False" "LTCGI" = "_LTCGI" }
+        LOD 300
+        
+        GrabPass
+        {
+            Tags { "LightMode" = "Always" }
+            // _GrabTexture is chosen for optimisation reasons, but it may be
+            // used by other shaders. If you see strange problems with the refraction
+            // in your scene missing objects, check the Frame Debugger to make sure
+            // _GrabTexture is being created after the opaque pass has ended. 
+            "_GrabTexture"
+        }
+
+        // ------------------------------------------------------------------
+        //  Base forward pass (directional light, emission, lightmaps, ...)
+        Pass
+        {
+            Name "FORWARD"
+            Tags { "LightMode" = "ForwardBase" }
+
+            Cull [_CullMode]
+            AlphaToMask [_AtoCmode]
+            Blend [_SrcBlend] [_DstBlend]
+            ZWrite [_ZWrite]
+
+            CGPROGRAM
+            #pragma target 4.0
+
+            // -------------------------------------
+
+            #pragma shader_feature_local_fragment _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
+            #pragma shader_feature_local_fragment __SPECULARHIGHLIGHTS_OFF
+            #pragma shader_feature_local_fragment __GLOSSYREFLECTIONS_OFF
+
+            #pragma shader_feature_local_fragment _ _BAKERY_RNM _BAKERY_SH _BAKERY_MONOSH
+            #pragma shader_feature_local_fragment _LTCGI
+            #pragma shader_feature_local_fragment _VRCLV
+            #pragma shader_feature_local_fragment _LIGHTMAPSPECULAR
+
+            #pragma multi_compile_fwdbase
+            #pragma multi_compile_fog
+            #pragma multi_compile_instancing
+
+            #pragma vertex vertBase
+            #pragma fragment fragBase
+
+            ENDCG
+        }
+        // ------------------------------------------------------------------
+        //  Additive forward pass (one light per pass)
+        Pass
+        {
+            Name "FORWARD_DELTA"
+            Tags { "LightMode" = "ForwardAdd" }
+            Blend One One
+            Fog { Color (0,0,0,0) } // in additive pass fog should be black
+            ZWrite Off
+            ZTest Equal
+            Cull [_CullMode]
+            AlphaToMask [_AtoCmode]
+
+            CGPROGRAM
+            #pragma target 3.0
+
+            // -------------------------------------
+
+            #pragma shader_feature_local_fragment _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
+            #pragma shader_feature_local_fragment _SPECULARHIGHLIGHTS_OFF
+
+            #pragma multi_compile_fwdadd_fullshadows
+            #pragma multi_compile_fog
+
+            #pragma vertex vertAdd
+            #pragma fragment fragAdd
+
+            ENDCG
+        }
+
+        // ------------------------------------------------------------------
+        //  Shadow rendering pass
+        Pass {
+            Name "ShadowCaster"
+            Tags { "LightMode" = "ShadowCaster" }
+
+            ZWrite On ZTest LEqual
+            Cull [_CullMode]
+            AlphaToMask Off
+
+            CGPROGRAM
+            #pragma target 3.0
+
+            // -------------------------------------
+
+            #ifndef UNITY_PASS_SHADOWCASTER
+            #define UNITY_PASS_SHADOWCASTER
+            #endif
+
+            #pragma shader_feature_local _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
+            #pragma multi_compile_shadowcaster
+            #pragma multi_compile_instancing
+
+            #pragma vertex vertShadowCaster
+            #pragma fragment fragShadowCaster
+
+            #include "Packages/s-ilent.filamented/Filamented/UnityStandardShadow.cginc"
+
+            ENDCG
+        }
+
+        Pass
+        {
+            Name "META"
+            Tags {"LightMode"="Meta"}
+            Cull Off
+            CGPROGRAM
+
+            #define REQUIRE_META_WORLDPOS
+
+            #include "Packages/s-ilent.filamented/Filamented/UnityStandardMeta.cginc"
+
+            #define META_PASS
+
+            float4 frag_meta2 (v2f_meta i): SV_Target
+            {
+                MaterialInputs material = SETUP_BRDF_INPUT (i.uv);
+                float4 dummy[3]; dummy[0] = 1; dummy[1] = 0; dummy[2] = i.worldPos;
+                material = MyMaterialSetup (i.uv, 0, 0, dummy, i.worldPos);
+
+                PixelParams pixel = (PixelParams)0;
+                getCommonPixelParams(material, pixel);
+
+                UnityMetaInput o;
+                UNITY_INITIALIZE_OUTPUT(UnityMetaInput, o);
+
+            #ifdef EDITOR_VISUALIZATION
+                o.Albedo = pixel.diffuseColor;
+                o.VizUV = i.vizUV;
+                o.LightCoord = i.lightCoord;
+            #else
+                o.Albedo = UnityLightmappingAlbedo (pixel.diffuseColor, pixel.f0, 1-pixel.perceptualRoughness);
+            #endif
+                o.SpecularColor = pixel.f0;
+                o.Emission = material.emissive;
+
+                return UnityMetaFragment(o);
+            }
+
+            #pragma vertex vert_meta
+            #pragma fragment frag_meta2
+            ENDCG
+        }
+    }
+
+    FallBack "VertexLit"
+}
