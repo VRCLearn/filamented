@@ -36,7 +36,7 @@ half computeMaskedAlpha(half a) {
 }
 
 half computeDiffuseAlpha(half a) {
-    return computeMaskedAlpha(a);
+    return saturate(computeMaskedAlpha(a));
 }
 
 void applyAlphaMask(inout float4 baseColor) {
