@@ -528,6 +528,8 @@ half4 fragForwardBaseInternal (VertexOutputForwardBase i, bool gl_FrontFacing)
     #endif
 #endif
 
+    applyAlphaMask(material.baseColor);
+
     float4 c = evaluateMaterial (shading, material);
 
     UNITY_EXTRACT_FOG_FROM_EYE_VEC(i);
@@ -699,6 +701,8 @@ half4 fragForwardAddInternal (VertexOutputForwardAdd i, bool gl_FrontFacing)
         shading.attenuation = min(shading.attenuation, max(1-nmShade, 0));
     #endif
 #endif
+
+    applyAlphaMask(material.baseColor);
 
     float4 c = evaluateMaterial (shading, material);
 

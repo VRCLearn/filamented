@@ -30,33 +30,16 @@
 //------------------------------------------------------------------------------
 
 #if defined(BLEND_MODE_MASKED)
-half computeMaskedAlpha(half a) {
-    // Use derivatives to smooth alpha tested edges
-    return (a - getMaskThreshold()) / max(fwidth(a), 1e-3) + 0.5;
-}
-
-half computeDiffuseAlpha(half a) {
-    return saturate(computeMaskedAlpha(a));
-}
-
 void applyAlphaMask(inout float4 baseColor) {
-    if (baseColor.a <= 0.0) {
+    // Use derivatives to sharpen alpha tested edges, combined with alpha to
+    // coverage to smooth the result
+    baseColor.a = (baseColor.a - getMaskThreshold()) / max(fwidth(baseColor.a), 1e-3) + 0.5;
+    if (baseColor.a <= getMaskThreshold()) {
         discard;
     }
 }
-
-#else // not masked
-
-float computeDiffuseAlpha(float a) {
-#if defined(BLEND_MODE_TRANSPARENT) || defined(BLEND_MODE_FADE)
-    return a;
 #else
-    return 1.0;
-#endif
-}
-
 void applyAlphaMask(inout float4 baseColor) {}
-
 #endif
 
 #if defined(GEOMETRIC_SPECULAR_AA)
@@ -87,7 +70,6 @@ half normalFiltering(half perceptualRoughness, const half3 worldNormal) {
 
 void getCommonPixelParams(const MaterialInputs material, inout PixelParams pixel) {
     half4 baseColor = material.baseColor;
-    applyAlphaMask(baseColor);
 
 #if defined(BLEND_MODE_FADE) && !defined(SHADING_MODEL_UNLIT)
     // Since we work in premultiplied alpha mode, we need to un-premultiply
@@ -338,7 +320,7 @@ half4 evaluateLights(const ShadingParams shading, const MaterialInputs material)
     color *= material.baseColor.a;
 #endif
 
-    return half4(color, computeDiffuseAlpha(material.baseColor.a));
+    return half4(color, material.baseColor.a);
 }
 
 void addEmissive(const MaterialInputs material, inout half4 color) {

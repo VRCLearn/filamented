@@ -155,6 +155,8 @@ half4 fragForwardBaseTemplate (VertexOutputForwardBase i)
     shading.attenuation = min(shading.attenuation, max(1-nmShade, 0));
 #endif
 
+    applyAlphaMask(material.baseColor);
+
     float4 c = evaluateMaterial (shading, material);
 
     UNITY_EXTRACT_FOG_FROM_EYE_VEC(i);
@@ -185,6 +187,8 @@ half4 fragForwardAddTemplate (VertexOutputForwardAdd i)
     float nmShade = NormalTangentShadow (i.tex, i.lightDirTS, noise);
     shading.attenuation = min(shading.attenuation, max(1-nmShade, 0));
 #endif
+
+    applyAlphaMask(material.baseColor);
 
     float4 c = evaluateMaterial (shading, material);
 
