@@ -17,8 +17,8 @@ namespace Silent.FilamentedExtras.Unity
 			public static GUIStyle scmStyle;
 			public static GUIStyle sectionHeader;
 			public static GUIStyle sectionHeaderBox;
-            static DefaultStyles()
-            {
+			static DefaultStyles()
+			{
 				scmStyle = new GUIStyle("DropDownButton");
 				sectionHeader = new GUIStyle(EditorStyles.miniBoldLabel);
 				sectionHeader.padding.left = 24;
@@ -33,689 +33,611 @@ namespace Silent.FilamentedExtras.Unity
 		}
 
 		sealed class HeaderExDecorator : MaterialPropertyDrawer
-    	{
-	        private readonly string header;
+		{
+			private readonly string header;
 
-	        public HeaderExDecorator(string header)
-	        {
-	            this.header = header;
-	        }
+			public HeaderExDecorator(string header)
+			{
+				this.header = header;
+			}
 
 	        // so that we can accept Header(1) and display that as text
-	        public HeaderExDecorator(float headerAsNumber)
-	        {
-	            this.header = headerAsNumber.ToString();
-	        }
+			public HeaderExDecorator(float headerAsNumber)
+			{
+				this.header = headerAsNumber.ToString();
+			}
 
-	        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
-	        {
-	            return 24f;
-	        }
+			public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+			{
+				return 24f;
+			}
 
-	        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
-	        {
+			public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
+			{
 				/*
 	            position.y += 8;
 	            position = EditorGUI.IndentedRect(position);
 	            GUI.Label(position, header, EditorStyles.boldLabel);
 				*/
-            Rect r = position;
-				r.x -= 2.0f;
-				r.y += 2.0f;
-				r.height = 18.0f;
-				r.width -= 0.0f;
-			GUI.Box(r, EditorGUIUtility.IconContent("d_FilterByType"), DefaultStyles.sectionHeaderBox);
-			position.y += 2;
-			GUI.Label(position, header, DefaultStyles.sectionHeader);
-	        }
-    	}
-
-	    sealed class SetKeywordDrawer : MaterialPropertyDrawer
-	    {
-	        static bool s_drawing;
-
-	        readonly string _keyword;
-
-	        public SetKeywordDrawer() : this(default) { }
-
-	        public SetKeywordDrawer(string keyword)
-	        {
-	            _keyword = keyword;
-	        }
-
-	        public override void Apply(MaterialProperty prop)
-	        {
-	            if (!string.IsNullOrEmpty(_keyword))
-	            {
-	                foreach (Material mat in prop.targets)
-	                {
-	                    if (mat.GetTexture(prop.name) != null)
-	                        mat.EnableKeyword(_keyword);
-	                    else
-	                        mat.DisableKeyword(_keyword);
-	                }
-	            }
-	        }
-
-	        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
-	            => 0;
-
-	        public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
-	        {
-	            if (s_drawing)
-	            {
-	                editor.DefaultShaderProperty(position, prop, label.text);
-	            }
-	            else if (prop.type == MaterialProperty.PropType.Texture)
-	            {
-	                var oldLabelWidth = EditorGUIUtility.labelWidth;
-	                EditorGUIUtility.labelWidth = 0f;
-	                s_drawing = true;
-	                try
-	                {
-	                    EditorGUI.BeginChangeCheck();
-	                    {
-	                        editor.TextureProperty(prop, label.text);
-	                    }
-	                    if (EditorGUI.EndChangeCheck())
-	                    {
-	                        if (!string.IsNullOrEmpty(_keyword))
-	                        {
-	                            var useTexture = prop.textureValue != null;
-	                            foreach (Material mat in prop.targets)
-	                            {
-	                                if (useTexture)
-	                                    mat.EnableKeyword(_keyword);
-	                                else
-	                                    mat.DisableKeyword(_keyword);
-	                            }
-	                        }
-	                    }
-	                }
-	                finally
-	                {
-	                    s_drawing = false;
-	                    EditorGUIUtility.labelWidth = oldLabelWidth;
-	                }
-	            }
+	            Rect r = position;
+	            r.x -= 2.0f;
+	            r.y += 2.0f;
+	            r.height = 18.0f;
+	            r.width -= 0.0f;
+	            GUI.Box(r, EditorGUIUtility.IconContent("d_FilterByType"), DefaultStyles.sectionHeaderBox);
+	            position.y += 2;
+	            GUI.Label(position, header, DefaultStyles.sectionHeader);
 	        }
 	    }
 
-	// Used for toggling GrabPass
-	internal class SetShaderPassToggleDrawer : MaterialPropertyDrawer
-	{
-		readonly string _passName;
-    	readonly string _keyword;
+	    sealed class SetKeywordDrawer : MaterialPropertyDrawer
+	    {
+	    	static bool s_drawing;
 
-		public SetShaderPassToggleDrawer() : this("Always", default) { }
+	    	readonly string _keyword;
 
-		public SetShaderPassToggleDrawer(string passName, string keyword)
-		{
-			_passName = passName;
-        	_keyword = keyword;
-		}
+	    	public SetKeywordDrawer() : this(default) { }
 
-		static bool IsPropertyTypeSuitable(MaterialProperty prop)
-		{
-			return prop.type == MaterialProperty.PropType.Float || prop.type == MaterialProperty.PropType.Range;
-			// Not present in 2019.4
-            // || prop.type == MaterialProperty.PropType.Int;
-		}
+	    	public SetKeywordDrawer(string keyword)
+	    	{
+	    		_keyword = keyword;
+	    	}
 
-		public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
-		{
-			if (!IsPropertyTypeSuitable(prop))
-			{
-				return EditorGUIUtility.singleLineHeight * 2.5f;
-			}
-			return base.GetPropertyHeight(prop, label, editor);
-		}
+	    	public override void Apply(MaterialProperty prop)
+	    	{
+	    		if (!string.IsNullOrEmpty(_keyword))
+	    		{
+	    			foreach (Material mat in prop.targets)
+	    			{
+	    				if (mat.GetTexture(prop.name) != null)
+	    				mat.EnableKeyword(_keyword);
+	    				else
+	    				mat.DisableKeyword(_keyword);
+	    			}
+	    		}
+	    	}
 
-		public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
-		{
+	    	public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+	    	=> 0;
 
-			EditorGUI.BeginChangeCheck();
-
-			bool value = (Math.Abs(prop.floatValue) > 0.001f);
-			EditorGUI.showMixedValue = prop.hasMixedValue;
-			value = EditorGUI.Toggle(position, label, value);
-			EditorGUI.showMixedValue = false;
-			if (EditorGUI.EndChangeCheck())
-			{
-				prop.floatValue = value ? 1.0f : 0.0f;
-				SetShaderPassEnabled(prop, value);
-			}
-		}
-
-		public override void Apply(MaterialProperty prop)
-		{
-			base.Apply(prop);
-			if (!IsPropertyTypeSuitable(prop))
-				return;
-
-			if (prop.hasMixedValue)
-				return;
-
-			SetShaderPassEnabled(prop, (Math.Abs(prop.floatValue) > 0.001f));
-		}
-
-		protected virtual void SetShaderPassEnabled(MaterialProperty prop, bool on)
-		{
-			foreach (Material mat in prop.targets)
-			{
-				mat.SetShaderPassEnabled(_passName, on);
-				if (on)
-				{
-					mat.EnableKeyword(_keyword);
-				}
-				else
-				{
-					mat.DisableKeyword(_keyword);
-				}
-
-			}
-		}
-	}
-
-
+	    	public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
+	    	{
+	    		if (s_drawing)
+	    		{
+	    			editor.DefaultShaderProperty(position, prop, label.text);
+	    		}
+	    		else if (prop.type == MaterialProperty.PropType.Texture)
+	    		{
+	    			var oldLabelWidth = EditorGUIUtility.labelWidth;
+	    			EditorGUIUtility.labelWidth = 0f;
+	    			s_drawing = true;
+	    			try
+	    			{
+	    				EditorGUI.BeginChangeCheck();
+	    				{
+	    					editor.TextureProperty(prop, label.text);
+	    				}
+	    				if (EditorGUI.EndChangeCheck())
+	    				{
+	    					if (!string.IsNullOrEmpty(_keyword))
+	    					{
+	    						var useTexture = prop.textureValue != null;
+	    						foreach (Material mat in prop.targets)
+	    						{
+	    							if (useTexture)
+	    							mat.EnableKeyword(_keyword);
+	    							else
+	    							mat.DisableKeyword(_keyword);
+	    						}
+	    					}
+	    				}
+	    			}
+	    			finally
+	    			{
+	    				s_drawing = false;
+	    				EditorGUIUtility.labelWidth = oldLabelWidth;
+	    			}
+	    		}
+	    	}
+	    }
 
     	// From momoma's GeneLit, used with permission
     	// https://github.com/momoma-null/GeneLit
-	sealed class SingleLineDrawer : MaterialPropertyDrawer
-	{
-		static bool s_drawing;
+	    sealed class SingleLineDrawer : MaterialPropertyDrawer
+	    {
+	    	static bool s_drawing;
 
-		readonly string _extraPropName;
-		readonly string _additionalPropName;
+	    	readonly string _extraPropName;
+	    	readonly string _additionalPropName;
 
-		public SingleLineDrawer() : this(default, default) { }
+	    	public SingleLineDrawer() : this(default, default) { }
 
-		public SingleLineDrawer(string extraPropName) : this(extraPropName, default) { }
+	    	public SingleLineDrawer(string extraPropName) : this(extraPropName, default) { }
 
-		public SingleLineDrawer(string extraPropName, string additionalPropName)
-		{
-			_extraPropName = extraPropName;
-			_additionalPropName = additionalPropName;
-		}
+	    	public SingleLineDrawer(string extraPropName, string additionalPropName)
+	    	{
+	    		_extraPropName = extraPropName;
+	    		_additionalPropName = additionalPropName;
+	    	}
 
-		public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
-			=> 0;
+	    	public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+	    	=> 0;
 
-		public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
-		{
-			if (s_drawing)
-			{
-				editor.DefaultShaderProperty(position, prop, label.text);
-			}
+	    	public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
+	    	{
+	    		if (s_drawing)
+	    		{
+	    			editor.DefaultShaderProperty(position, prop, label.text);
+	    		}
 
-			if (prop.type != MaterialProperty.PropType.Texture)
-				return;
+	    		if (prop.type != MaterialProperty.PropType.Texture)
+	    		return;
 
-			var oldLabelWidth = EditorGUIUtility.labelWidth;
-			EditorGUIUtility.labelWidth = 0f;
-			s_drawing = true;
-        try
-        {
-            EditorGUI.BeginChangeCheck();
+	    		var oldLabelWidth = EditorGUIUtility.labelWidth;
+	    		EditorGUIUtility.labelWidth = 0f;
+	    		s_drawing = true;
+	    		try
+	    		{
+	    			EditorGUI.BeginChangeCheck();
 
-            if (string.IsNullOrEmpty(_extraPropName))
-            {
-                editor.TexturePropertySingleLine(label, prop);
-            }
-            else
-            {
-                var extraProp = MaterialEditor.GetMaterialProperty(prop.targets, _extraPropName);
+	    			if (string.IsNullOrEmpty(_extraPropName))
+	    			{
+	    				editor.TexturePropertySingleLine(label, prop);
+	    			}
+	    			else
+	    			{
+	    				var extraProp = MaterialEditor.GetMaterialProperty(prop.targets, _extraPropName);
 
-                if (extraProp != null && extraProp.type == MaterialProperty.PropType.Color && (extraProp.flags & MaterialProperty.PropFlags.HDR) > 0)
-                {
-                    editor.TexturePropertyWithHDRColor(label, prop, extraProp, false);
-                }
-                else if (string.IsNullOrEmpty(_additionalPropName))
-                {
-                    editor.TexturePropertySingleLine(label, prop, extraProp);
-                }
-                else
-                {
-                    var additionalProp = MaterialEditor.GetMaterialProperty(prop.targets, _additionalPropName);
-                    editor.TexturePropertySingleLine(label, prop, extraProp, additionalProp);
-                }
-			}
+	    				if (extraProp != null && extraProp.type == MaterialProperty.PropType.Color && (extraProp.flags & MaterialProperty.PropFlags.HDR) > 0)
+	    				{
+	    					editor.TexturePropertyWithHDRColor(label, prop, extraProp, false);
+	    				}
+	    				else if (string.IsNullOrEmpty(_additionalPropName))
+	    				{
+	    					editor.TexturePropertySingleLine(label, prop, extraProp);
+	    				}
+	    				else
+	    				{
+	    					var additionalProp = MaterialEditor.GetMaterialProperty(prop.targets, _additionalPropName);
+	    					editor.TexturePropertySingleLine(label, prop, extraProp, additionalProp);
+	    				}
+	    			}
 
-            EditorGUI.EndChangeCheck();
-            }
-			finally
-			{
-				s_drawing = false;
-				EditorGUIUtility.labelWidth = oldLabelWidth;
-			}
+	    			EditorGUI.EndChangeCheck();
+	    		}
+	    		finally
+	    		{
+	    			s_drawing = false;
+	    			EditorGUIUtility.labelWidth = oldLabelWidth;
+	    		}
 
-		}
-	}
+	    	}
+	    }
 
-	sealed class SetKeywordSingleLineDrawer : MaterialPropertyDrawer
-	{
-		static bool s_drawing;
-		readonly string _keyword;
-		readonly string _extraPropName;
-		readonly string _additionalPropName;
+	    sealed class SetKeywordSingleLineDrawer : MaterialPropertyDrawer
+	    {
+	    	static bool s_drawing;
+	    	readonly string _keyword;
+	    	readonly string _extraPropName;
+	    	readonly string _additionalPropName;
 
-		public SetKeywordSingleLineDrawer(string keyword) : this(keyword, null, null) { }
+	    	public SetKeywordSingleLineDrawer(string keyword) : this(keyword, null, null) { }
 
-		public SetKeywordSingleLineDrawer(string keyword, string extraPropName) : this(keyword, extraPropName, null) { }
+	    	public SetKeywordSingleLineDrawer(string keyword, string extraPropName) : this(keyword, extraPropName, null) { }
 
-		public SetKeywordSingleLineDrawer(string keyword, string extraPropName, string additionalPropName)
-		{
-			_keyword = keyword;
-			_extraPropName = extraPropName;
-			_additionalPropName = additionalPropName;
-		}
+	    	public SetKeywordSingleLineDrawer(string keyword, string extraPropName, string additionalPropName)
+	    	{
+	    		_keyword = keyword;
+	    		_extraPropName = extraPropName;
+	    		_additionalPropName = additionalPropName;
+	    	}
 
-		public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
-			=> 0;
+	    	public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+	    	=> 0;
 
-		public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
-		{
-			if (s_drawing)
-			{
-				editor.DefaultShaderProperty(position, prop, label.text);
-				return;
-			}
+	    	public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
+	    	{
+	    		if (s_drawing)
+	    		{
+	    			editor.DefaultShaderProperty(position, prop, label.text);
+	    			return;
+	    		}
 
-			if (prop.type != MaterialProperty.PropType.Texture)
-				return;
+	    		if (prop.type != MaterialProperty.PropType.Texture)
+	    		return;
 
-			var oldLabelWidth = EditorGUIUtility.labelWidth;
-			EditorGUIUtility.labelWidth = 0f;
-			s_drawing = true;
+	    		var oldLabelWidth = EditorGUIUtility.labelWidth;
+	    		EditorGUIUtility.labelWidth = 0f;
+	    		s_drawing = true;
 
-			try
-			{
-				EditorGUI.BeginChangeCheck();
+	    		try
+	    		{
+	    			EditorGUI.BeginChangeCheck();
 
-				if (string.IsNullOrEmpty(_extraPropName))
-				{
-					editor.TexturePropertySingleLine(label, prop);
-				}
-				else
-				{
-					var extraProp = MaterialEditor.GetMaterialProperty(prop.targets, _extraPropName);
+	    			if (string.IsNullOrEmpty(_extraPropName))
+	    			{
+	    				editor.TexturePropertySingleLine(label, prop);
+	    			}
+	    			else
+	    			{
+	    				var extraProp = MaterialEditor.GetMaterialProperty(prop.targets, _extraPropName);
 
-					if (extraProp != null && extraProp.type == MaterialProperty.PropType.Color &&
-						(extraProp.flags & MaterialProperty.PropFlags.HDR) > 0)
-					{
-						editor.TexturePropertyWithHDRColor(label, prop, extraProp, false);
-					}
-					else if (string.IsNullOrEmpty(_additionalPropName))
-					{
-						editor.TexturePropertySingleLine(label, prop, extraProp);
-					}
-					else
-					{
-						var additionalProp = MaterialEditor.GetMaterialProperty(prop.targets, _additionalPropName);
-						editor.TexturePropertySingleLine(label, prop, extraProp, additionalProp);
-					}
-				}
+	    				if (extraProp != null && extraProp.type == MaterialProperty.PropType.Color &&
+	    					(extraProp.flags & MaterialProperty.PropFlags.HDR) > 0)
+	    				{
+	    					editor.TexturePropertyWithHDRColor(label, prop, extraProp, false);
+	    				}
+	    				else if (string.IsNullOrEmpty(_additionalPropName))
+	    				{
+	    					editor.TexturePropertySingleLine(label, prop, extraProp);
+	    				}
+	    				else
+	    				{
+	    					var additionalProp = MaterialEditor.GetMaterialProperty(prop.targets, _additionalPropName);
+	    					editor.TexturePropertySingleLine(label, prop, extraProp, additionalProp);
+	    				}
+	    			}
 
-				if (EditorGUI.EndChangeCheck() && !string.IsNullOrEmpty(_keyword))
-				{
-					var useTexture = prop.textureValue != null;
-					foreach (Material mat in prop.targets)
-					{
-						if (useTexture)
-							mat.EnableKeyword(_keyword);
-						else
-							mat.DisableKeyword(_keyword);
-					}
-				}
-			}
-			finally
-			{
-				s_drawing = false;
-				EditorGUIUtility.labelWidth = oldLabelWidth;
-			}
-		}
+	    			if (EditorGUI.EndChangeCheck() && !string.IsNullOrEmpty(_keyword))
+	    			{
+	    				var useTexture = prop.textureValue != null;
+	    				foreach (Material mat in prop.targets)
+	    				{
+	    					if (useTexture)
+	    					mat.EnableKeyword(_keyword);
+	    					else
+	    					mat.DisableKeyword(_keyword);
+	    				}
+	    			}
+	    		}
+	    		finally
+	    		{
+	    			s_drawing = false;
+	    			EditorGUIUtility.labelWidth = oldLabelWidth;
+	    		}
+	    	}
 
-		public override void Apply(MaterialProperty prop)
-		{
-			if (!string.IsNullOrEmpty(_keyword))
-			{
-				foreach (Material mat in prop.targets)
-				{
-					if (mat.GetTexture(prop.name) != null)
-						mat.EnableKeyword(_keyword);
-					else
-						mat.DisableKeyword(_keyword);
-				}
-			}
-		}
-	}
+	    	public override void Apply(MaterialProperty prop)
+	    	{
+	    		if (!string.IsNullOrEmpty(_keyword))
+	    		{
+	    			foreach (Material mat in prop.targets)
+	    			{
+	    				if (mat.GetTexture(prop.name) != null)
+	    				mat.EnableKeyword(_keyword);
+	    				else
+	    				mat.DisableKeyword(_keyword);
+	    			}
+	    		}
+	    	}
+	    }
 
-sealed class TexturePropertyTwoLines : MaterialPropertyDrawer
-{
-    static bool s_drawing;
+	    sealed class TexturePropertyTwoLines : MaterialPropertyDrawer
+	    {
+	    	static bool s_drawing;
 
-    readonly string _extraPropName;
-    readonly string _additionalPropName;
+	    	readonly string _extraPropName;
+	    	readonly string _additionalPropName;
 
-    public TexturePropertyTwoLines() : this(default, default) { }
+	    	public TexturePropertyTwoLines() : this(default, default) { }
 
-    public TexturePropertyTwoLines(string extraPropName) : this(extraPropName, default) { }
+	    	public TexturePropertyTwoLines(string extraPropName) : this(extraPropName, default) { }
 
-    public TexturePropertyTwoLines(string extraPropName, string additionalPropName)
-    {
-        _extraPropName = extraPropName;
-        _additionalPropName = additionalPropName;
-    }
+	    	public TexturePropertyTwoLines(string extraPropName, string additionalPropName)
+	    	{
+	    		_extraPropName = extraPropName;
+	    		_additionalPropName = additionalPropName;
+	    	}
 
-    public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
-        => EditorGUIUtility.singleLineHeight * 2;
+	    	public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+	    	=> EditorGUIUtility.singleLineHeight * 2;
 
-    public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
-    {
-        if (s_drawing)
-        {
-            editor.DefaultShaderProperty(position, prop, label.text);
-        }
+	    	public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
+	    	{
+	    		if (s_drawing)
+	    		{
+	    			editor.DefaultShaderProperty(position, prop, label.text);
+	    		}
 
-        if (prop.type != MaterialProperty.PropType.Texture)
-            return;
+	    		if (prop.type != MaterialProperty.PropType.Texture)
+	    		return;
 
-        var oldLabelWidth = EditorGUIUtility.labelWidth;
-        EditorGUIUtility.labelWidth = 0f;
-        s_drawing = true;
-        try
-        {
-            EditorGUI.BeginChangeCheck();
-            var firstLinePosition = new Rect(position.x, position.y, position.width, EditorGUIUtility.singleLineHeight);
-            var secondLinePosition = new Rect(position.x, position.y + EditorGUIUtility.singleLineHeight, position.width, EditorGUIUtility.singleLineHeight);
+	    		var oldLabelWidth = EditorGUIUtility.labelWidth;
+	    		EditorGUIUtility.labelWidth = 0f;
+	    		s_drawing = true;
+	    		try
+	    		{
+	    			EditorGUI.BeginChangeCheck();
+	    			var firstLinePosition = new Rect(position.x, position.y, position.width, EditorGUIUtility.singleLineHeight);
+	    			var secondLinePosition = new Rect(position.x, position.y + EditorGUIUtility.singleLineHeight, position.width, EditorGUIUtility.singleLineHeight);
 
-            if (string.IsNullOrEmpty(_extraPropName))
-            {
-                editor.TexturePropertySingleLine(label, prop);
-            }
-            else
-            {
-                var extraProp = MaterialEditor.GetMaterialProperty(prop.targets, _extraPropName);
-                var additionalProp = MaterialEditor.GetMaterialProperty(prop.targets, _additionalPropName);
-                var extraLabel = new GUIContent(extraProp.displayName);
-                var additionalLabel = new GUIContent(additionalProp.displayName);
+	    			if (string.IsNullOrEmpty(_extraPropName))
+	    			{
+	    				editor.TexturePropertySingleLine(label, prop);
+	    			}
+	    			else
+	    			{
+	    				var extraProp = MaterialEditor.GetMaterialProperty(prop.targets, _extraPropName);
+	    				var additionalProp = MaterialEditor.GetMaterialProperty(prop.targets, _additionalPropName);
+	    				var extraLabel = new GUIContent(extraProp.displayName);
+	    				var additionalLabel = new GUIContent(additionalProp.displayName);
 
-                if (extraProp.type == MaterialProperty.PropType.Color && (extraProp.flags & MaterialProperty.PropFlags.HDR) > 0)
-                    editor.TexturePropertyWithHDRColor(label, prop, extraProp, false);
-                else
-                    editor.TexturePropertyTwoLines(label, prop, extraProp, additionalLabel, additionalProp);
-            }
-            EditorGUI.EndChangeCheck();
-        }
-        finally
-        {
-            s_drawing = false;
-            EditorGUIUtility.labelWidth = oldLabelWidth;
-        }
-    }
-}
+	    				if (extraProp.type == MaterialProperty.PropType.Color && (extraProp.flags & MaterialProperty.PropFlags.HDR) > 0)
+	    				editor.TexturePropertyWithHDRColor(label, prop, extraProp, false);
+	    				else
+	    				editor.TexturePropertyTwoLines(label, prop, extraProp, additionalLabel, additionalProp);
+	    			}
+	    			EditorGUI.EndChangeCheck();
+	    		}
+	    		finally
+	    		{
+	    			s_drawing = false;
+	    			EditorGUIUtility.labelWidth = oldLabelWidth;
+	    		}
+	    	}
+	    }
 
 
 
-    	sealed class ScaleOffsetDecorator : MaterialPropertyDrawer
-    	{
-    	    bool _initialized = false;
+	    sealed class ScaleOffsetDecorator : MaterialPropertyDrawer
+	    {
+	    	bool _initialized = false;
 
-    	    public ScaleOffsetDecorator() { }
+	    	public ScaleOffsetDecorator() { }
 
-    	    public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
-    	    {
-    	        if (!_initialized)
-    	        {
-    	            prop.ReplacePostDecorator(this);
-    	            _initialized = true;
-    	        }
-    	        return 2f * EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
-    	    }
+	    	public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+	    	{
+	    		if (!_initialized)
+	    		{
+	    			prop.ReplacePostDecorator(this);
+	    			_initialized = true;
+	    		}
+	    		return 2f * EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+	    	}
 
-    	    public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
-    	    {
-    	        position.xMin += 15f;
-    	        position.y = position.yMax - (2f * EditorGUIUtility.singleLineHeight + 2.5f * EditorGUIUtility.standardVerticalSpacing);
-    	        editor.TextureScaleOffsetProperty(position, prop);
-    	    }
-    	}
+	    	public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
+	    	{
+	    		position.xMin += 15f;
+	    		position.y = position.yMax - (2f * EditorGUIUtility.singleLineHeight + 2.5f * EditorGUIUtility.standardVerticalSpacing);
+	    		editor.TextureScaleOffsetProperty(position, prop);
+	    	}
+	    }
 
-        sealed class IfDefDecorator : MaterialPropertyDrawer
-    	{
-    		readonly string[] _keywords;
+	    sealed class IfDefDecorator : MaterialPropertyDrawer
+	    {
+	    	readonly string[] _keywords;
 
     		// 1 Argument: Chains to master
-    		public IfDefDecorator(string k1) : this(k1, null, null, null) { }
+	    	public IfDefDecorator(string k1) : this(k1, null, null, null) { }
 
     		// 2 Arguments: Chains to master
-    		public IfDefDecorator(string k1, string k2) : this(k1, k2, null, null) { }
+	    	public IfDefDecorator(string k1, string k2) : this(k1, k2, null, null) { }
 
     		// 3 Arguments: Chains to master
-    		public IfDefDecorator(string k1, string k2, string k3) : this(k1, k2, k3, null) { }
+	    	public IfDefDecorator(string k1, string k2, string k3) : this(k1, k2, k3, null) { }
 
     		// Master Constructor (4 Arguments)
-    		public IfDefDecorator(string k1, string k2, string k3, string k4)
-    		{
+	    	public IfDefDecorator(string k1, string k2, string k3, string k4)
+	    	{
     			// Collect valid keywords into the array
-    			var list = new List<string>();
-    			if (!string.IsNullOrEmpty(k1)) list.Add(k1);
-    			if (!string.IsNullOrEmpty(k2)) list.Add(k2);
-    			if (!string.IsNullOrEmpty(k3)) list.Add(k3);
-    			if (!string.IsNullOrEmpty(k4)) list.Add(k4);
-    			_keywords = list.ToArray();
-    		}
+	    		var list = new List<string>();
+	    		if (!string.IsNullOrEmpty(k1)) list.Add(k1);
+	    		if (!string.IsNullOrEmpty(k2)) list.Add(k2);
+	    		if (!string.IsNullOrEmpty(k3)) list.Add(k3);
+	    		if (!string.IsNullOrEmpty(k4)) list.Add(k4);
+	    		_keywords = list.ToArray();
+	    	}
 
-    		private bool IsConditionMet(Material mat)
-    		{
+	    	private bool IsConditionMet(Material mat)
+	    	{
     			// OR Logic: If ANY of the keywords are enabled, return true
-    			foreach (var keyword in _keywords)
-    			{
-    				if (mat.IsKeywordEnabled(keyword))
-    					return true;
-    			}
-    			return false;
-    		}
+	    		foreach (var keyword in _keywords)
+	    		{
+	    			if (mat.IsKeywordEnabled(keyword))
+	    			return true;
+	    		}
+	    		return false;
+	    	}
 
-    		public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
-    		{
-    			var materials = Array.ConvertAll(prop.targets, o => o as Material);
+	    	public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+	    	{
+	    		var materials = Array.ConvertAll(prop.targets, o => o as Material);
 
     			// Check first material
-    			var conditionMet = IsConditionMet(materials[0]);
+	    		var conditionMet = IsConditionMet(materials[0]);
 
     			// If not met, skip.
-    			if (!conditionMet)
-    			{
-    				prop.SkipRemainingDrawers(this);
-    				return 0;
-    			}
+	    		if (!conditionMet)
+	    		{
+	    			prop.SkipRemainingDrawers(this);
+	    			return 0;
+	    		}
 
     			// If mixed (some objects have it, some don't), we usually hide to avoid conflicts
-    			for (var i = 1; i < materials.Length; ++i)
-    			{
-    				if (IsConditionMet(materials[i]) != conditionMet)
-    				{
-    					prop.SkipRemainingDrawers(this);
-    					break;
-    				}
-    			}
-    			return 0;
-    		}
+	    		for (var i = 1; i < materials.Length; ++i)
+	    		{
+	    			if (IsConditionMet(materials[i]) != conditionMet)
+	    			{
+	    				prop.SkipRemainingDrawers(this);
+	    				break;
+	    			}
+	    		}
+	    		return 0;
+	    	}
 
-    		public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
-    		{
-    			var materials = Array.ConvertAll(prop.targets, o => o as Material);
-    			var conditionMet = IsConditionMet(materials[0]);
+	    	public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
+	    	{
+	    		var materials = Array.ConvertAll(prop.targets, o => o as Material);
+	    		var conditionMet = IsConditionMet(materials[0]);
 
-    			if (!conditionMet)
-    			{
-    				prop.SkipRemainingDrawers(this);
-    			}
-    			else
-    			{
-    				for (var i = 1; i < materials.Length; ++i)
-    				{
-    					if (IsConditionMet(materials[i]) != conditionMet)
-    					{
-    						prop.SkipRemainingDrawers(this);
-    						break;
-    					}
-    				}
-    			}
-    		}
-    	}
+	    		if (!conditionMet)
+	    		{
+	    			prop.SkipRemainingDrawers(this);
+	    		}
+	    		else
+	    		{
+	    			for (var i = 1; i < materials.Length; ++i)
+	    			{
+	    				if (IsConditionMet(materials[i]) != conditionMet)
+	    				{
+	    					prop.SkipRemainingDrawers(this);
+	    					break;
+	    				}
+	    			}
+	    		}
+	    	}
+	    }
 
-    	sealed class IfNDefDecorator : MaterialPropertyDrawer
-    	{
-    		readonly string[] _keywords;
+	    sealed class IfNDefDecorator : MaterialPropertyDrawer
+	    {
+	    	readonly string[] _keywords;
 
     		// 1 Argument: Chains to master
-    		public IfNDefDecorator(string k1) : this(k1, null, null, null) { }
+	    	public IfNDefDecorator(string k1) : this(k1, null, null, null) { }
 
     		// 2 Arguments: Chains to master
-    		public IfNDefDecorator(string k1, string k2) : this(k1, k2, null, null) { }
+	    	public IfNDefDecorator(string k1, string k2) : this(k1, k2, null, null) { }
 
     		// 3 Arguments: Chains to master
-    		public IfNDefDecorator(string k1, string k2, string k3) : this(k1, k2, k3, null) { }
+	    	public IfNDefDecorator(string k1, string k2, string k3) : this(k1, k2, k3, null) { }
 
     		// Master Constructor (4 Arguments)
-    		public IfNDefDecorator(string k1, string k2, string k3, string k4)
-    		{
-    			var list = new List<string>();
-    			if (!string.IsNullOrEmpty(k1)) list.Add(k1);
-    			if (!string.IsNullOrEmpty(k2)) list.Add(k2);
-    			if (!string.IsNullOrEmpty(k3)) list.Add(k3);
-    			if (!string.IsNullOrEmpty(k4)) list.Add(k4);
-    			_keywords = list.ToArray();
-    		}
+	    	public IfNDefDecorator(string k1, string k2, string k3, string k4)
+	    	{
+	    		var list = new List<string>();
+	    		if (!string.IsNullOrEmpty(k1)) list.Add(k1);
+	    		if (!string.IsNullOrEmpty(k2)) list.Add(k2);
+	    		if (!string.IsNullOrEmpty(k3)) list.Add(k3);
+	    		if (!string.IsNullOrEmpty(k4)) list.Add(k4);
+	    		_keywords = list.ToArray();
+	    	}
 
-    		private bool IsConditionMet(Material mat)
-    		{
-    			foreach (var keyword in _keywords)
-    			{
-    				if (mat.IsKeywordEnabled(keyword))
-    					return true;
-    			}
-    			return false;
-    		}
+	    	private bool IsConditionMet(Material mat)
+	    	{
+	    		foreach (var keyword in _keywords)
+	    		{
+	    			if (mat.IsKeywordEnabled(keyword))
+	    			return true;
+	    		}
+	    		return false;
+	    	}
 
-    		public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
-    		{
-    			var materials = Array.ConvertAll(prop.targets, o => o as Material);
-    			var conditionMet = IsConditionMet(materials[0]);
+	    	public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+	    	{
+	    		var materials = Array.ConvertAll(prop.targets, o => o as Material);
+	    		var conditionMet = IsConditionMet(materials[0]);
 
     			// IfNDef Logic: If the condition IS met (keyword defined), we SKIP (Hide)
-    			if (conditionMet)
-    			{
-    				prop.SkipRemainingDrawers(this);
-    				return 0;
-    			}
+	    		if (conditionMet)
+	    		{
+	    			prop.SkipRemainingDrawers(this);
+	    			return 0;
+	    		}
 
-    			for (var i = 1; i < materials.Length; ++i)
-    			{
-    				if (IsConditionMet(materials[i]) != conditionMet)
-    				{
-    					prop.SkipRemainingDrawers(this);
-    					break;
-    				}
-    			}
-    			return 0;
-    		}
+	    		for (var i = 1; i < materials.Length; ++i)
+	    		{
+	    			if (IsConditionMet(materials[i]) != conditionMet)
+	    			{
+	    				prop.SkipRemainingDrawers(this);
+	    				break;
+	    			}
+	    		}
+	    		return 0;
+	    	}
 
-    		public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
-    		{
-    			var materials = Array.ConvertAll(prop.targets, o => o as Material);
-    			var conditionMet = IsConditionMet(materials[0]);
+	    	public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
+	    	{
+	    		var materials = Array.ConvertAll(prop.targets, o => o as Material);
+	    		var conditionMet = IsConditionMet(materials[0]);
 
-    			if (conditionMet)
-    			{
-    				prop.SkipRemainingDrawers(this);
-    			}
-    			else
-    			{
-    				for (var i = 1; i < materials.Length; ++i)
-    				{
-    					if (IsConditionMet(materials[i]) != conditionMet)
-    					{
-    						prop.SkipRemainingDrawers(this);
-    						break;
-    					}
-    				}
-    			}
-    		}
-    	}
+	    		if (conditionMet)
+	    		{
+	    			prop.SkipRemainingDrawers(this);
+	    		}
+	    		else
+	    		{
+	    			for (var i = 1; i < materials.Length; ++i)
+	    			{
+	    				if (IsConditionMet(materials[i]) != conditionMet)
+	    				{
+	    					prop.SkipRemainingDrawers(this);
+	    					break;
+	    				}
+	    			}
+	    		}
+	    	}
+	    }
 
-		sealed class IfSetDecorator : MaterialPropertyDrawer
-		{
-			readonly string _propertyName;
-			readonly float _value;
+	    sealed class IfSetDecorator : MaterialPropertyDrawer
+	    {
+	    	readonly string _propertyName;
+	    	readonly float _value;
 
-			public IfSetDecorator(string propertyName, float value)
-			{
-				_propertyName = propertyName;
-				_value = value;
-			}
+	    	public IfSetDecorator(string propertyName, float value)
+	    	{
+	    		_propertyName = propertyName;
+	    		_value = value;
+	    	}
 
-			public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
-			{
-				var materials = Array.ConvertAll(prop.targets, o => o as Material);
-				var enabled = Mathf.Approximately(materials[0].GetFloat(_propertyName), _value);
-				if (!enabled)
-				{
-					prop.SkipRemainingDrawers(this);
-				}
-				else
-				{
-					for (var i = 1; i < materials.Length; ++i)
-					{
-						if (!Mathf.Approximately(materials[i].GetFloat(_propertyName), _value))
-						{
-							prop.SkipRemainingDrawers(this);
-							break;
-						}
-					}
-				}
-				return 0;
-			}
+	    	public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+	    	{
+	    		var materials = Array.ConvertAll(prop.targets, o => o as Material);
+	    		var enabled = Mathf.Approximately(materials[0].GetFloat(_propertyName), _value);
+	    		if (!enabled)
+	    		{
+	    			prop.SkipRemainingDrawers(this);
+	    		}
+	    		else
+	    		{
+	    			for (var i = 1; i < materials.Length; ++i)
+	    			{
+	    				if (!Mathf.Approximately(materials[i].GetFloat(_propertyName), _value))
+	    				{
+	    					prop.SkipRemainingDrawers(this);
+	    					break;
+	    				}
+	    			}
+	    		}
+	    		return 0;
+	    	}
 
-			public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
-			{
-				var materials = Array.ConvertAll(prop.targets, o => o as Material);
-				var enabled = Mathf.Approximately(materials[0].GetFloat(_propertyName), _value);
-				if (!enabled)
-				{
-					prop.SkipRemainingDrawers(this);
-				}
-				else
-				{
-					for (var i = 1; i < materials.Length; ++i)
-					{
-						if (!Mathf.Approximately(materials[i].GetFloat(_propertyName), _value))
-						{
-							prop.SkipRemainingDrawers(this);
-							break;
-						}
-					}
-				}
-			}
-		}
+	    	public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
+	    	{
+	    		var materials = Array.ConvertAll(prop.targets, o => o as Material);
+	    		var enabled = Mathf.Approximately(materials[0].GetFloat(_propertyName), _value);
+	    		if (!enabled)
+	    		{
+	    			prop.SkipRemainingDrawers(this);
+	    		}
+	    		else
+	    		{
+	    			for (var i = 1; i < materials.Length; ++i)
+	    			{
+	    				if (!Mathf.Approximately(materials[i].GetFloat(_propertyName), _value))
+	    				{
+	    					prop.SkipRemainingDrawers(this);
+	    					break;
+	    				}
+	    			}
+	    		}
+	    	}
+	    }
 
-		sealed class GradientDisplayDecorator : MaterialPropertyDrawer
-		{
-			readonly Color[] _colors;
+	    sealed class GradientDisplayDecorator : MaterialPropertyDrawer
+	    {
+	    	readonly Color[] _colors;
 
-			public GradientDisplayDecorator(params string[] colors)
-			{
-				_colors = new Color[colors.Length];
-				for (int i = 0; i < colors.Length; i++)
-				{
-					_colors[i] = ColorUtility.TryParseHtmlString(colors[i], out var col) ? col : Color.clear;
-				}
-			}
+	    	public GradientDisplayDecorator(params string[] colors)
+	    	{
+	    		_colors = new Color[colors.Length];
+	    		for (int i = 0; i < colors.Length; i++)
+	    		{
+	    			_colors[i] = ColorUtility.TryParseHtmlString(colors[i], out var col) ? col : Color.clear;
+	    		}
+	    	}
 
-			public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
-			{
+	    	public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+	    	{
 				return 0.0f; // base.GetPropertyHeight(prop, label, editor) + EditorGUIUtility.singleLineHeight;
 			}
 
@@ -856,6 +778,82 @@ sealed class TexturePropertyTwoLines : MaterialPropertyDrawer
 			}
 		}
 
+		// Used for toggling GrabPass
+		internal class SetShaderPassToggleDrawer : MaterialPropertyDrawer
+		{
+			readonly string _passName;
+			readonly string _keyword;
+
+			public SetShaderPassToggleDrawer() : this("Always", default) { }
+
+			public SetShaderPassToggleDrawer(string passName, string keyword)
+			{
+				_passName = passName;
+				_keyword = keyword;
+			}
+
+			static bool IsPropertyTypeSuitable(MaterialProperty prop)
+			{
+				return prop.type == MaterialProperty.PropType.Float || prop.type == MaterialProperty.PropType.Range;
+			// Not present in 2019.4
+            // || prop.type == MaterialProperty.PropType.Int;
+			}
+
+			public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+			{
+				if (!IsPropertyTypeSuitable(prop))
+				{
+					return EditorGUIUtility.singleLineHeight * 2.5f;
+				}
+				return base.GetPropertyHeight(prop, label, editor);
+			}
+
+			public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
+			{
+
+				EditorGUI.BeginChangeCheck();
+
+				bool value = (Math.Abs(prop.floatValue) > 0.001f);
+				EditorGUI.showMixedValue = prop.hasMixedValue;
+				value = EditorGUI.Toggle(position, label, value);
+				EditorGUI.showMixedValue = false;
+				if (EditorGUI.EndChangeCheck())
+				{
+					prop.floatValue = value ? 1.0f : 0.0f;
+					SetShaderPassEnabled(prop, value);
+				}
+			}
+
+			public override void Apply(MaterialProperty prop)
+			{
+				base.Apply(prop);
+				if (!IsPropertyTypeSuitable(prop))
+				return;
+
+				if (prop.hasMixedValue)
+				return;
+
+				SetShaderPassEnabled(prop, (Math.Abs(prop.floatValue) > 0.001f));
+			}
+
+			protected virtual void SetShaderPassEnabled(MaterialProperty prop, bool on)
+			{
+				foreach (Material mat in prop.targets)
+				{
+					mat.SetShaderPassEnabled(_passName, on);
+					if (on)
+					{
+						mat.EnableKeyword(_keyword);
+					}
+					else
+					{
+						mat.DisableKeyword(_keyword);
+					}
+
+				}
+			}
+		}
+
 		public class BlendModeSelectorDrawer : MaterialPropertyDrawer
 		{
 			private readonly string _srcBlend;
@@ -948,8 +946,8 @@ sealed class TexturePropertyTwoLines : MaterialPropertyDrawer
 					targetMat.SetInt(_alphaToMask, blendMode == 1 ? 1 : 0);
 				}
 
-    			targetMat.renderQueue = (int)data.renderQueue;
+				targetMat.renderQueue = (int)data.renderQueue;
 			}
 		}
-    }
+	}
 }

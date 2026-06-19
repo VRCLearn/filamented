@@ -63,10 +63,10 @@ namespace Silent.FilamentedExtras.Unity
 			char[] fieldSep = new char[] {'\t'};
 			//if (styles.Count == 0)
 			{
-					string[] guids = AssetDatabase.FindAssets("t:TextAsset SCT_InspectorData." + Application.systemLanguage);
+					string[] guids = AssetDatabase.FindAssets("t:TextAsset SFE_InspectorData." + Application.systemLanguage);
 					if (guids.Length == 0)
 					{
-						guids = AssetDatabase.FindAssets("t:TextAsset SCT_InspectorData.English");
+						guids = AssetDatabase.FindAssets("t:TextAsset SFE_InspectorData.English");
 						// If there's no file at all, leave
 						if (guids.Length == 0) return;
 					}
