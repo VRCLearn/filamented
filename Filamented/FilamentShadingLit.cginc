@@ -34,6 +34,7 @@ void applyAlphaMask(inout float4 baseColor) {
     // Use derivatives to sharpen alpha tested edges, combined with alpha to
     // coverage to smooth the result
     baseColor.a = (baseColor.a - getMaskThreshold()) / max(fwidth(baseColor.a), 1e-3) + 0.5;
+    baseColor.a = saturate(baseColor.a);
     if (baseColor.a <= getMaskThreshold()) {
         discard;
     }
