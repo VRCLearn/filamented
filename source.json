@@ -1,0 +1,22 @@
+{
+    "name": "Filamented | VRCLearn",
+    "id": "io.github.vrclearn.filamented",
+    "url": "https://vrclearn.github.io/filamented/index.json",
+    "author": {
+        "name": "VRCLearn",
+        "url": "https://github.com/VRCLearn",
+        "email": ""
+    },
+    "description": "VPM distribution mirror of s-ilent/Filamented.",
+    "bannerUrl": "banner.png",
+    "infoLink": {
+        "text": "Source and documentation",
+        "url": "https://github.com/VRCLearn/filamented"
+    },
+    "repository": "VRCLearn/filamented",
+    "packageName": "s-ilent.filamented",
+    "githubRepos": [
+        "VRCLearn/filamented"
+    ],
+    "source": "https://gitlab.com/s-ilent/filamented"
+}
