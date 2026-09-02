@@ -1,0 +1,215 @@
+name: Release VPM package
+
+on:
+  workflow_call:
+    inputs:
+      revision:
+        description: Exact mirror revision to package and publish.
+        required: true
+        type: string
+      upstream_revision:
+        description: Upstream revision represented by the mirror candidate.
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Exact mirror revision to package; defaults to the default branch.
+        required: false
+        type: string
+        default: ""
+      upstream_revision:
+        description: Optional upstream revision used to detect unchanged package versions.
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  actions: write
+  contents: write
+
+env:
+  GH_REPO: ${{ github.repository }}
+
+concurrency:
+  group: vpm-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      VPM_AUTHOR_EMAIL: 2424313-s-ilent@users.noreply.gitlab.com
+      VPM_AUTHOR_NAME: Silent
+      VPM_AUTHOR_URL: https://gitlab.com/s-ilent
+    steps:
+      - name: Check out the selected mirror revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.revision || github.event.repository.default_branch }}
+
+      - name: Resolve the source revision
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          revision_sha="$(git rev-parse HEAD)"
+          echo "revision_sha=$revision_sha" >> "$GITHUB_OUTPUT"
+          echo "Packaging mirror revision $revision_sha."
+
+      - name: Build the VPM archive
+        id: package
+        run: |
+          python .github/scripts/build_vpm_package.py \
+            --source . \
+            --output "$RUNNER_TEMP" \
+            --repository "$GITHUB_REPOSITORY" \
+            --author-name "$VPM_AUTHOR_NAME" \
+            --author-email "$VPM_AUTHOR_EMAIL" \
+            --author-url "$VPM_AUTHOR_URL" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Inspect the release state
+        id: release
+        env:
+          ARCHIVE_NAME: ${{ steps.package.outputs.archive_name }}
+          GH_TOKEN: ${{ github.token }}
+          MANIFEST_NAME: package.json
+          RELEASE_TAG: ${{ steps.package.outputs.tag }}
+          REVISION_SHA: ${{ steps.source.outputs.revision_sha }}
+          UNITYPACKAGE_NAME: ${{ steps.package.outputs.unitypackage_name }}
+          UPSTREAM_REVISION: ${{ inputs.upstream_revision }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            assets="$(
+              gh release view "$RELEASE_TAG" \
+                --json assets \
+                --jq '.assets[].name'
+            )"
+            release_commit="$(
+              git ls-remote --tags origin \
+                "refs/tags/${RELEASE_TAG}" \
+                "refs/tags/${RELEASE_TAG}^{}" \
+                | awk 'END { print $1 }'
+            )"
+            if [[ -n "$UPSTREAM_REVISION" && -n "$release_commit" ]] && \
+               ! git merge-base --is-ancestor "$UPSTREAM_REVISION" "$release_commit"; then
+              echo "::warning::Upstream source changed without a package.json version bump. Release $RELEASE_TAG remains immutable at $release_commit instead of publishing mirror revision $REVISION_SHA."
+            fi
+
+            if grep -Fxq "$ARCHIVE_NAME" <<< "$assets" && \
+               grep -Fxq "$UNITYPACKAGE_NAME" <<< "$assets" && \
+               grep -Fxq "$MANIFEST_NAME" <<< "$assets"; then
+              echo "action=none" >> "$GITHUB_OUTPUT"
+              echo "Release $RELEASE_TAG is already complete."
+            else
+              echo "action=upload" >> "$GITHUB_OUTPUT"
+              echo "Release $RELEASE_TAG is missing one or more assets."
+            fi
+            exit 0
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Tag $RELEASE_TAG exists without a GitHub release." >&2
+            exit 1
+          fi
+
+          echo "action=create" >> "$GITHUB_OUTPUT"
+
+      - name: Stage the embedded Unity package
+        if: steps.release.outputs.action != 'none'
+        id: unitypackage
+        env:
+          ARCHIVE_PATH: ${{ steps.package.outputs.archive_path }}
+          PACKAGE_NAME: ${{ steps.package.outputs.package_name }}
+          UNITYPACKAGE_NAME: ${{ steps.package.outputs.unitypackage_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          project_path="$RUNNER_TEMP/unity-project"
+          package_path="$project_path/Packages/$PACKAGE_NAME"
+          mkdir -p "$package_path"
+          unzip -q "$ARCHIVE_PATH" -d "$package_path"
+
+          (
+            cd "$project_path"
+            find "Packages/$PACKAGE_NAME" -type f -name '*.meta' -print \
+              | LC_ALL=C sort > metaList
+          )
+          test -s "$project_path/metaList"
+          echo "project_path=$project_path" >> "$GITHUB_OUTPUT"
+          echo "unitypackage_path=$project_path/$UNITYPACKAGE_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build the UnityPackage archive
+        if: steps.release.outputs.action != 'none'
+        uses: pCYSl5EDgo/create-unitypackage@b5c57408698b1fab8b3a84d4b67f767b8b7c0be9 # v1.2.3
+        with:
+          working-folder: ${{ steps.unitypackage.outputs.project_path }}
+          project-folder: .
+          package-path: ${{ steps.package.outputs.unitypackage_name }}
+          include-files: metaList
+
+      - name: Publish the GitHub release
+        if: steps.release.outputs.action == 'create'
+        env:
+          ARCHIVE_NAME: ${{ steps.package.outputs.archive_name }}
+          ARCHIVE_PATH: ${{ steps.package.outputs.archive_path }}
+          GH_TOKEN: ${{ github.token }}
+          MANIFEST_PATH: ${{ steps.package.outputs.manifest_path }}
+          RELEASE_TAG: ${{ steps.package.outputs.tag }}
+          REVISION_SHA: ${{ steps.source.outputs.revision_sha }}
+          UNITYPACKAGE_NAME: ${{ steps.package.outputs.unitypackage_name }}
+          UNITYPACKAGE_PATH: ${{ steps.unitypackage.outputs.unitypackage_path }}
+          VERSION: ${{ steps.package.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" \
+            "$ARCHIVE_PATH" \
+            "$UNITYPACKAGE_PATH" \
+            "$MANIFEST_PATH" \
+            --target "$REVISION_SHA" \
+            --title "$VERSION" \
+            --notes "Automated VPM and UnityPackage distribution of [s-ilent/Filamented](https://gitlab.com/s-ilent/filamented). Package metadata is supplemented for VPM compatibility; project source files are mirrored from upstream."
+
+      - name: Repair missing release assets
+        if: steps.release.outputs.action == 'upload'
+        env:
+          ARCHIVE_NAME: ${{ steps.package.outputs.archive_name }}
+          ARCHIVE_PATH: ${{ steps.package.outputs.archive_path }}
+          GH_TOKEN: ${{ github.token }}
+          MANIFEST_PATH: ${{ steps.package.outputs.manifest_path }}
+          RELEASE_TAG: ${{ steps.package.outputs.tag }}
+          UNITYPACKAGE_NAME: ${{ steps.package.outputs.unitypackage_name }}
+          UNITYPACKAGE_PATH: ${{ steps.unitypackage.outputs.unitypackage_path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          assets="$(
+            gh release view "$RELEASE_TAG" \
+              --json assets \
+              --jq '.assets[].name'
+          )"
+          if ! grep -Fxq "$ARCHIVE_NAME" <<< "$assets"; then
+            gh release upload "$RELEASE_TAG" "$ARCHIVE_PATH"
+          fi
+          if ! grep -Fxq "$UNITYPACKAGE_NAME" <<< "$assets"; then
+            gh release upload "$RELEASE_TAG" "$UNITYPACKAGE_PATH"
+          fi
+          if ! grep -Fxq package.json <<< "$assets"; then
+            gh release upload "$RELEASE_TAG" "$MANIFEST_PATH"
+          fi
+
+      - name: Rebuild the VPM repository listing
+        if: steps.release.outputs.action != 'none'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh workflow run build-listing.yml \
+            --ref "${{ github.event.repository.default_branch }}"
