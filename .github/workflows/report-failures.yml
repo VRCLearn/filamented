@@ -1,0 +1,107 @@
+name: Report automation failures
+
+on:
+  workflow_run:
+    workflows:
+      - Build VPM repository listing
+      - Release VPM package
+      - Sync upstream
+    types:
+      - completed
+
+permissions: {}
+
+jobs:
+  report:
+    if: github.event.workflow_run.head_branch == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create, update, or close the failure issue
+        env:
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          TITLE: "[automation] ${{ github.event.workflow_run.name }} failed"
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          existing_number="$(
+            gh issue list \
+              --repo "$GITHUB_REPOSITORY" \
+              --state open \
+              --limit 100 \
+              --json number,title \
+              | jq -r \
+                  --arg title "$TITLE" \
+                  'first(.[] | select(.title == $title) | .number) // empty'
+          )"
+
+          if [[ "$CONCLUSION" == "success" ]]; then
+            if [[ -n "$existing_number" ]]; then
+              gh issue close "$existing_number" \
+                --repo "$GITHUB_REPOSITORY" \
+                --comment "Automation recovered in **${WORKFLOW_NAME}**: [open successful run](${RUN_URL}) (commit \`${HEAD_SHA}\`)."
+            fi
+            exit 0
+          fi
+
+          if [[ "$CONCLUSION" != "failure" && "$CONCLUSION" != "timed_out" ]]; then
+            echo "Conclusion $CONCLUSION does not require an issue."
+            exit 0
+          fi
+
+          upstream_sha=""
+          upstream_context=""
+          if [[ "$WORKFLOW_NAME" == "Sync upstream" ]]; then
+            upstream_sha="$(
+              git ls-remote https://gitlab.com/s-ilent/filamented.git \
+                refs/heads/master \
+                | awk 'NR == 1 { print $1 }' \
+                || true
+            )"
+            if [[ -n "$upstream_sha" ]]; then
+              upstream_context="$(printf '\n- Upstream master: `%s`' "$upstream_sha")"
+            fi
+          fi
+
+          fingerprint="$(
+            printf '%s' "${WORKFLOW_NAME}|${CONCLUSION}|${HEAD_SHA}|${upstream_sha}" \
+              | git hash-object --stdin
+          )"
+          fingerprint_marker="<!-- automation-failure-fingerprint:${fingerprint} -->"
+
+          printf -v issue_body \
+            'The automated workflow **%s** failed and may require attention.\n\n- Run: [open workflow run](%s)\n- Event: `%s`\n- Commit: `%s`%s\n\nThis issue was created automatically and will close after a successful recovery run. Repeated checks of the same upstream state do not add another notification.\n\n%s' \
+            "$WORKFLOW_NAME" "$RUN_URL" "$RUN_EVENT" "$HEAD_SHA" "$upstream_context" "$fingerprint_marker"
+
+          if [[ -n "$existing_number" ]]; then
+            existing_body="$(
+              gh issue view "$existing_number" \
+                --repo "$GITHUB_REPOSITORY" \
+                --json body \
+                --jq .body
+            )"
+            if [[ "$existing_body" == *"$fingerprint_marker"* ]]; then
+              echo "Failure $fingerprint was already reported; leaving the issue unchanged."
+              exit 0
+            fi
+
+            gh issue comment "$existing_number" \
+              --repo "$GITHUB_REPOSITORY" \
+              --body "A different failure occurred in **${WORKFLOW_NAME}**: [open workflow run](${RUN_URL}) (commit \`${HEAD_SHA}\`)."
+            gh issue edit "$existing_number" \
+              --repo "$GITHUB_REPOSITORY" \
+              --body "$issue_body"
+            exit 0
+          fi
+
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TITLE" \
+            --body "$issue_body"

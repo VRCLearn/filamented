@@ -1,0 +1,225 @@
+name: Sync upstream
+
+on:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare upstream merge
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      base_sha: ${{ steps.sync.outputs.base_sha }}
+      changed: ${{ steps.sync.outputs.changed }}
+      sync_branch: ${{ steps.sync.outputs.sync_branch }}
+      sync_sha: ${{ steps.sync.outputs.sync_sha }}
+      upstream_sha: ${{ steps.sync.outputs.upstream_sha }}
+    steps:
+      - name: Check out the mirror
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Merge the upstream default branch
+        id: sync
+        env:
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base_sha="$(git rev-parse HEAD)"
+          git remote add upstream https://gitlab.com/s-ilent/filamented.git
+          git fetch --force --no-tags upstream \
+            refs/heads/master:refs/remotes/upstream/master
+          upstream_sha="$(git rev-parse refs/remotes/upstream/master)"
+
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+          echo "upstream_sha=$upstream_sha" >> "$GITHUB_OUTPUT"
+
+          if git merge-base --is-ancestor "$upstream_sha" HEAD; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "sync_branch=" >> "$GITHUB_OUTPUT"
+            echo "sync_sha=$base_sha" >> "$GITHUB_OUTPUT"
+            echo "The mirror already contains upstream master at $upstream_sha."
+            exit 0
+          fi
+
+          merge_base="$(git merge-base HEAD "$upstream_sha")"
+          protected_changes="$(
+            git diff --name-only "$merge_base" "$upstream_sha" -- \
+              .github \
+              MIRROR.md \
+              Website \
+              source.json
+          )"
+          if [[ -n "$protected_changes" ]]; then
+            echo "::error title=Manual mirror update required::Upstream changed mirror-owned paths."
+            {
+              echo "## Manual mirror update required"
+              echo
+              echo "Upstream master at \`$upstream_sha\` changed mirror-owned paths:"
+              echo
+              echo '```text'
+              echo "$protected_changes"
+              echo '```'
+              echo
+              echo "Review and merge these changes manually before retrying synchronization."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge --no-edit "$upstream_sha"
+          git diff --check "$base_sha"..HEAD -- . ':(exclude,glob)**/*.meta'
+
+          sync_branch="automation/upstream-${RUN_ID}"
+          sync_sha="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/${sync_branch}"
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "sync_branch=$sync_branch" >> "$GITHUB_OUTPUT"
+          echo "sync_sha=$sync_sha" >> "$GITHUB_OUTPUT"
+          echo "Prepared upstream master at $upstream_sha as $sync_sha."
+
+      - name: Keep scheduled synchronization active
+        if: github.event_name == 'schedule' && steps.sync.outputs.changed == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          now="$(date +%s)"
+          last_commit="$(git log -1 --format=%ct)"
+          maximum_idle_seconds="$((45 * 24 * 60 * 60))"
+          if (( now - last_commit < maximum_idle_seconds )); then
+            echo "The repository has been active within the last 45 days."
+            exit 0
+          fi
+
+          date -u +'%Y-%m-%dT%H:%M:%SZ' > .github/keepalive
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/keepalive
+          git commit -m "Keep scheduled synchronization active"
+          git push origin "HEAD:${{ github.event.repository.default_branch }}"
+
+  validate:
+    name: Validate upstream candidate
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the candidate
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.sync_sha }}
+
+      - name: Run mirror unit tests
+        run: python -m unittest discover -s .github/scripts -p 'test_*.py'
+
+      - name: Build and validate the VPM archive
+        env:
+          VPM_AUTHOR_EMAIL: 2424313-s-ilent@users.noreply.gitlab.com
+          VPM_AUTHOR_NAME: Silent
+          VPM_AUTHOR_URL: https://gitlab.com/s-ilent
+        run: |
+          python .github/scripts/build_vpm_package.py \
+            --source . \
+            --output "$RUNNER_TEMP/vpm" \
+            --repository "$GITHUB_REPOSITORY" \
+            --author-name "$VPM_AUTHOR_NAME" \
+            --author-email "$VPM_AUTHOR_EMAIL" \
+            --author-url "$VPM_AUTHOR_URL"
+
+  promote:
+    name: Promote validated upstream merge
+    needs:
+      - prepare
+      - validate
+    if: >-
+      needs.prepare.outputs.changed == 'true' &&
+      needs.validate.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the validated candidate
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.sync_sha }}
+
+      - name: Fast-forward the default branch
+        env:
+          BASE_SHA: ${{ needs.prepare.outputs.base_sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin "$DEFAULT_BRANCH"
+          current_default="$(git rev-parse "origin/${DEFAULT_BRANCH}")"
+          if [[ "$current_default" != "$BASE_SHA" ]]; then
+            echo "The default branch changed while the upstream candidate was tested." >&2
+            echo "Expected $BASE_SHA but found $current_default. Retry synchronization." >&2
+            exit 1
+          fi
+
+          git push origin "HEAD:${DEFAULT_BRANCH}"
+
+  release:
+    name: Publish a new VPM version when needed
+    needs:
+      - prepare
+      - promote
+    if: >-
+      always() &&
+      needs.prepare.result == 'success' &&
+      (needs.prepare.outputs.changed == 'false' || needs.promote.result == 'success')
+    permissions:
+      actions: write
+      contents: write
+    uses: ./.github/workflows/release-vpm.yml
+    with:
+      revision: ${{ needs.prepare.outputs.sync_sha }}
+      upstream_revision: ${{ needs.prepare.outputs.upstream_sha }}
+    secrets: inherit
+
+  cleanup:
+    name: Remove the temporary synchronization branch
+    needs:
+      - prepare
+      - validate
+      - promote
+      - release
+    if: always() && needs.prepare.outputs.sync_branch != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete the temporary branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_BRANCH: ${{ needs.prepare.outputs.sync_branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api \
+            --method DELETE \
+            "repos/${GITHUB_REPOSITORY}/git/refs/heads/${SYNC_BRANCH}" \
+            >/dev/null 2>&1 || true
