@@ -36,8 +36,32 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Retry reads only: replaying issue writes could duplicate notifications.
+          gh_read() {
+              local attempt output error_file status
+              error_file="$(mktemp)" || return 1
+              for attempt in 1 2 3 4; do
+                  if output="$(gh "$@" 2>"$error_file")"; then
+                      cat "$error_file" >&2
+                      rm -f "$error_file"
+                      printf '%s\n' "$output"
+                      return 0
+                  else
+                      status=$?
+                  fi
+                  cat "$error_file" >&2
+                  if (( attempt == 4 )) ||
+                     ! grep -Eq 'HTTP (500|502|503|504)([^0-9]|$)' "$error_file"; then
+                      rm -f "$error_file"
+                      return "$status"
+                  fi
+                  echo "GitHub API read failed temporarily; retrying ($attempt/3)." >&2
+                  sleep "$((2 ** attempt))"
+              done
+          }
+
           existing_number="$(
-            gh issue list \
+            gh_read issue list \
               --repo "$GITHUB_REPOSITORY" \
               --state open \
               --limit 100 \
@@ -87,7 +111,7 @@ jobs:
 
           if [[ -n "$existing_number" ]]; then
             existing_body="$(
-              gh issue view "$existing_number" \
+              gh_read issue view "$existing_number" \
                 --repo "$GITHUB_REPOSITORY" \
                 --json body \
                 --jq .body
@@ -128,21 +152,49 @@ jobs:
         run: |
           set -euo pipefail
 
-          default_branch="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)"
+          # Retry reads only: replaying issue writes could duplicate notifications.
+          gh_read() {
+              local attempt output error_file status
+              error_file="$(mktemp)" || return 1
+              for attempt in 1 2 3 4; do
+                  if output="$(gh "$@" 2>"$error_file")"; then
+                      cat "$error_file" >&2
+                      rm -f "$error_file"
+                      printf '%s\n' "$output"
+                      return 0
+                  else
+                      status=$?
+                  fi
+                  cat "$error_file" >&2
+                  if (( attempt == 4 )) ||
+                     ! grep -Eq 'HTTP (500|502|503|504)([^0-9]|$)' "$error_file"; then
+                      rm -f "$error_file"
+                      return "$status"
+                  fi
+                  echo "GitHub API read failed temporarily; retrying ($attempt/3)." >&2
+                  sleep "$((2 ** attempt))"
+              done
+          }
+
+          default_branch="$(gh_read api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)"
           workflows=(
             "Build VPM repository listing"
             "Release VPM package"
             "Sync upstream"
           )
 
+          open_issues="$(
+            gh_read issue list \
+              --repo "$GITHUB_REPOSITORY" \
+              --state open \
+              --limit 100 \
+              --json number,title
+          )"
+
           for workflow_name in "${workflows[@]}"; do
             title="[automation] ${workflow_name} failed"
             existing_number="$(
-              gh issue list \
-                --repo "$GITHUB_REPOSITORY" \
-                --state open \
-                --limit 100 \
-                --json number,title \
+              printf '%s\n' "$open_issues" \
                 | jq -r \
                     --arg title "$title" \
                     'first(.[] | select(.title == $title) | .number) // empty'
@@ -152,7 +204,7 @@ jobs:
             fi
 
             latest_run="$(
-              gh run list \
+              gh_read run list \
                 --repo "$GITHUB_REPOSITORY" \
                 --workflow "$workflow_name" \
                 --limit 50 \
