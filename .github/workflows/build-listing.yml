@@ -9,6 +9,7 @@ on:
       - .github/scripts/build_vpm_listing.py
       - Website/**
       - source.json
+      - .github/vpm/**
   workflow_dispatch:
   release:
     types:
@@ -76,6 +77,8 @@ jobs:
         run: |
           set -euo pipefail
           cp source.json official-template/source.json
+          cp .github/vpm/vrclearn-banner.png official-template/Website/vrclearn-banner.png
+          cat .github/vpm/banner.css >> official-template/Website/styles.css
           template=official-template/Website/index.html
           if ! perl -0pi -e \
             '$count = s{>Add to VCC<}{>Add to VCC/ALCOMD<}g; END { exit($count == 2 ? 0 : 1) }' \
